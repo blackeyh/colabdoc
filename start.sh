@@ -1,4 +1,4 @@
 #!/bin/bash
 # Start the ColabDoc backend (which also serves the frontend)
 cd "$(dirname "$0")/backend"
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}"
