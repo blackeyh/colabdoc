@@ -7,11 +7,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from database import SessionLocal
-from routers import auth, documents, permissions, versions
+from database import SessionLocal, engine
+from routers import auth, documents, permissions, versions, ai as ai_router
 from websocket_manager import manager
 import models
 import auth as auth_utils
+
+# Create any new tables (e.g. ai_interactions) without touching existing ones
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="ColabDoc API", version="1.0.0")
 
@@ -27,6 +30,7 @@ app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(permissions.router)
 app.include_router(versions.router)
+app.include_router(ai_router.router)
 
 
 @app.websocket("/ws/documents/{doc_id}")

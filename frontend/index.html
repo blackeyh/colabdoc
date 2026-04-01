@@ -21,9 +21,10 @@
   .form-group { margin-bottom: 1rem; }
   .form-group label { display: block; margin-bottom: .3rem; font-size: .9rem; color: #555; }
   .form-group input { width: 100%; padding: .6rem .8rem; border: 1px solid #ddd; border-radius: 5px; font-size: 1rem; }
-  .btn { padding: .6rem 1.2rem; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; }
+  .btn { padding: .6rem 1.2rem; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; transition: background .15s; }
   .btn-primary { background: #4f6ef7; color: #fff; width: 100%; margin-top: .5rem; }
   .btn-primary:hover { background: #3a56d4; }
+  .btn-primary:disabled { background: #a0aef8; cursor: not-allowed; }
   .btn-danger { background: #e74c3c; color: #fff; }
   .btn-danger:hover { background: #c0392b; }
   .btn-sm { padding: .3rem .7rem; font-size: .85rem; }
@@ -34,10 +35,8 @@
   .topbar { background: #fff; border-bottom: 1px solid #e5e5e5; padding: .8rem 2rem; display: flex; justify-content: space-between; align-items: center; }
   .topbar h2 { font-size: 1.1rem; color: #4f6ef7; }
   .topbar-right { display: flex; align-items: center; gap: 1rem; font-size: .9rem; }
-
   .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; margin-top: 1.5rem; }
   .section-header h3 { font-size: 1.1rem; }
-
   .doc-list { display: grid; gap: .8rem; }
   .doc-card { background: #fff; border-radius: 6px; padding: 1rem 1.2rem; box-shadow: 0 1px 4px rgba(0,0,0,.08); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: box-shadow .15s; }
   .doc-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
@@ -55,27 +54,59 @@
   /* Editor */
   #editor-page { padding: 0; max-width: 100%; }
   .editor-bar { background: #fff; border-bottom: 1px solid #e5e5e5; padding: .6rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
-  .editor-bar .back-btn { cursor: pointer; color: #4f6ef7; font-size: .9rem; }
+  .editor-bar .back-btn { cursor: pointer; color: #4f6ef7; font-size: .9rem; white-space: nowrap; }
   .editor-bar .doc-title-input { border: none; font-size: 1.1rem; font-weight: 600; flex: 1; outline: none; padding: .2rem .4rem; border-radius: 4px; }
   .editor-bar .doc-title-input:focus { background: #f0f4ff; }
-  .editor-bar .editor-status { font-size: .8rem; color: #888; }
+  .editor-bar .editor-status { font-size: .8rem; color: #888; white-space: nowrap; }
 
   .editor-body { display: flex; height: calc(100vh - 49px); }
-  .editor-main { flex: 1; display: flex; flex-direction: column; }
+  .editor-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   .editor-textarea { flex: 1; resize: none; border: none; outline: none; padding: 2rem; font-size: 1rem; line-height: 1.7; font-family: inherit; background: #fafafa; }
-  .editor-sidebar { width: 260px; border-left: 1px solid #e5e5e5; background: #fff; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1.2rem; }
+  .editor-sidebar { width: 290px; flex-shrink: 0; border-left: 1px solid #e5e5e5; background: #fff; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1.2rem; }
 
-  .sidebar-section h4 { font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; color: #888; margin-bottom: .6rem; }
+  .sidebar-section h4 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: #aaa; margin-bottom: .6rem; font-weight: 600; }
   .user-tag { display: inline-flex; align-items: center; gap: .4rem; background: #f0f4ff; border-radius: 4px; padding: .25rem .6rem; font-size: .85rem; margin-bottom: .3rem; }
-  .user-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; }
+  .user-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; flex-shrink: 0; }
   .perm-row { display: flex; align-items: center; justify-content: space-between; font-size: .85rem; margin-bottom: .4rem; gap: .4rem; }
   .perm-role { color: #666; font-size: .78rem; background: #f5f5f5; border-radius: 3px; padding: .1rem .4rem; }
-
   .version-row { font-size: .82rem; color: #555; margin-bottom: .4rem; display: flex; justify-content: space-between; align-items: center; }
-  .save-version-btn { font-size: .8rem; }
-
   select { padding: .3rem .5rem; border: 1px solid #ddd; border-radius: 4px; font-size: .85rem; }
-  input[type="number"], input[type="text"], input[type="email"], input[type="password"] { font-size: 1rem; }
+  input[type="text"], input[type="email"], input[type="password"] { font-size: 1rem; }
+
+  /* AI Panel */
+  .ai-panel { border: 1px solid #e0e7ff; border-radius: 8px; background: #fafbff; padding: .8rem; }
+  .ai-panel-header { display: flex; align-items: center; gap: .4rem; margin-bottom: .7rem; }
+  .ai-panel-header span { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #4f6ef7; }
+  .ai-spark { font-size: 1rem; }
+
+  .ai-idle { font-size: .82rem; color: #aaa; line-height: 1.5; }
+
+  .ai-selection-preview { background: #fff; border: 1px solid #e0e7ff; border-radius: 5px; padding: .5rem .6rem; margin-bottom: .7rem; }
+  .ai-selection-label { font-size: .72rem; color: #888; margin-bottom: .25rem; }
+  .ai-selection-text { font-size: .82rem; color: #444; font-style: italic; line-height: 1.45;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ai-word-count { font-size: .72rem; color: #aaa; margin-top: .25rem; }
+
+  .ai-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; margin-bottom: .6rem; }
+  .ai-action-btn { background: #fff; border: 1px solid #d0d8ff; border-radius: 6px; padding: .4rem .3rem; cursor: pointer; font-size: .8rem; color: #3a56d4; font-weight: 500; transition: all .15s; text-align: center; line-height: 1.3; }
+  .ai-action-btn:hover { background: #eef1ff; border-color: #4f6ef7; }
+  .ai-action-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .ai-action-icon { display: block; font-size: 1.1rem; margin-bottom: .15rem; }
+
+  .ai-loading { display: flex; align-items: center; gap: .5rem; font-size: .83rem; color: #4f6ef7; padding: .4rem 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 14px; height: 14px; border: 2px solid #d0d8ff; border-top-color: #4f6ef7; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+
+  .ai-result-label { font-size: .72rem; color: #888; margin-bottom: .3rem; display: flex; justify-content: space-between; align-items: center; }
+  .ai-result-action-badge { background: #e0e7ff; color: #3a56d4; border-radius: 3px; padding: .1rem .4rem; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .ai-suggestion-box { background: #fff; border: 1px solid #c8d4ff; border-radius: 5px; padding: .55rem .65rem; font-size: .83rem; color: #222; line-height: 1.55; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; margin-bottom: .6rem; }
+  .ai-result-btns { display: flex; gap: .4rem; }
+  .ai-result-btns button { flex: 1; padding: .38rem; font-size: .82rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; transition: background .15s; }
+  .ai-accept-btn { background: #4f6ef7; color: #fff; }
+  .ai-accept-btn:hover { background: #3a56d4; }
+  .ai-reject-btn { background: #f5f5f5; color: #555; border: 1px solid #ddd !important; }
+  .ai-reject-btn:hover { background: #eee; }
+  .ai-error { background: #fff5f5; border: 1px solid #fca5a5; border-radius: 5px; padding: .45rem .6rem; font-size: .82rem; color: #dc2626; margin-top: .4rem; }
 </style>
 </head>
 <body>
@@ -147,26 +178,99 @@
       <span class="back-btn" onclick="goBack()">← Back</span>
       <input class="doc-title-input" id="editor-title" type="text" placeholder="Document title" onblur="saveTitle()">
       <span class="editor-status" id="editor-status">Saved</span>
-      <button class="btn btn-sm save-version-btn" onclick="saveVersion()">Save Version</button>
+      <button class="btn btn-sm" onclick="saveVersion()" style="white-space:nowrap">Save Version</button>
     </div>
     <div class="editor-body">
       <div class="editor-main">
-        <textarea class="editor-textarea" id="editor-content" placeholder="Start writing…" oninput="onContentChange()"></textarea>
+        <textarea
+          class="editor-textarea"
+          id="editor-content"
+          placeholder="Start writing… Select any text to use the AI assistant →"
+          oninput="onContentChange()"
+          onmouseup="checkAISelection()"
+          onkeyup="checkAISelection()"
+        ></textarea>
       </div>
       <div class="editor-sidebar">
+
+        <!-- AI ASSISTANT -->
+        <div class="sidebar-section">
+          <div class="ai-panel">
+            <div class="ai-panel-header">
+              <span class="ai-spark">✦</span>
+              <span>AI Assistant</span>
+            </div>
+
+            <!-- Idle: no selection -->
+            <div id="ai-idle" class="ai-idle">
+              Select any text in the editor, then choose an action below.
+            </div>
+
+            <!-- Selection preview -->
+            <div id="ai-selection-preview" style="display:none">
+              <div class="ai-selection-preview">
+                <div class="ai-selection-label">Selected text</div>
+                <div class="ai-selection-text" id="ai-selection-text"></div>
+                <div class="ai-word-count" id="ai-word-count"></div>
+              </div>
+              <div class="ai-action-grid" id="ai-action-grid">
+                <button class="ai-action-btn" onclick="callAI('rewrite')">
+                  <span class="ai-action-icon">✏️</span>Rewrite
+                </button>
+                <button class="ai-action-btn" onclick="callAI('summarize')">
+                  <span class="ai-action-icon">📝</span>Summarize
+                </button>
+                <button class="ai-action-btn" onclick="callAI('translate')">
+                  <span class="ai-action-icon">🌐</span>Translate
+                </button>
+                <button class="ai-action-btn" onclick="callAI('restructure')">
+                  <span class="ai-action-icon">🔀</span>Restructure
+                </button>
+              </div>
+            </div>
+
+            <!-- Loading -->
+            <div id="ai-loading" style="display:none">
+              <div class="ai-loading">
+                <div class="spinner"></div>
+                <span id="ai-loading-label">AI is thinking…</span>
+              </div>
+            </div>
+
+            <!-- Result -->
+            <div id="ai-result" style="display:none">
+              <div class="ai-result-label">
+                <span>Suggestion</span>
+                <span class="ai-result-action-badge" id="ai-result-badge"></span>
+              </div>
+              <div class="ai-suggestion-box" id="ai-suggestion-text"></div>
+              <div class="ai-result-btns">
+                <button class="ai-accept-btn" onclick="acceptAI()">✓ Accept</button>
+                <button class="ai-reject-btn" onclick="rejectAI()">✗ Reject</button>
+              </div>
+            </div>
+
+            <!-- Error -->
+            <div id="ai-error" style="display:none" class="ai-error"></div>
+          </div>
+        </div>
+
+        <!-- ACTIVE USERS -->
         <div class="sidebar-section">
           <h4>Active Users</h4>
           <div id="active-users"></div>
         </div>
+
+        <!-- PERMISSIONS -->
         <div class="sidebar-section">
           <h4>Permissions</h4>
           <div id="perm-list"></div>
           <div id="add-perm-section" style="display:none;margin-top:.5rem">
             <div class="form-group" style="margin-bottom:.5rem;position:relative">
-              <input type="text" id="perm-search" placeholder="Search by name or email" style="width:100%;padding:.4rem;border:1px solid #ddd;border-radius:4px" oninput="searchUsers(this.value)">
+              <input type="text" id="perm-search" placeholder="Search by name or email" style="width:100%;padding:.4rem;border:1px solid #ddd;border-radius:4px;font-size:.85rem" oninput="searchUsers(this.value)">
               <div id="user-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:4px;z-index:10;max-height:150px;overflow-y:auto;box-shadow:0 2px 8px rgba(0,0,0,.1)"></div>
             </div>
-            <div id="selected-user-display" style="display:none;font-size:.85rem;background:#f0f4ff;border-radius:4px;padding:.3rem .6rem;margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center">
+            <div id="selected-user-display" style="display:none;font-size:.85rem;background:#f0f4ff;border-radius:4px;padding:.3rem .6rem;margin-bottom:.5rem;justify-content:space-between;align-items:center">
               <span id="selected-user-label"></span>
               <span style="cursor:pointer;color:#aaa" onclick="clearSelectedUser()">✕</span>
             </div>
@@ -182,10 +286,13 @@
             <div class="error" id="perm-error"></div>
           </div>
         </div>
+
+        <!-- VERSIONS -->
         <div class="sidebar-section">
           <h4>Versions</h4>
           <div id="version-list"></div>
         </div>
+
       </div>
     </div>
   </div>
@@ -218,16 +325,17 @@ let currentDocRole = null;
 let ws = null;
 let wsReconnectTimer = null;
 let saveTimer = null;
-let pendingContent = null;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function showPage(id) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 }
-
 function openModal(id) { document.getElementById(id).classList.add("open"); }
 function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+function esc(str) {
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
 
 async function apiFetch(path, opts = {}) {
   const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
@@ -269,7 +377,6 @@ async function doRegister() {
         password: document.getElementById("reg-password").value,
       }),
     });
-    // Auto-login
     document.getElementById("login-email").value = document.getElementById("reg-email").value;
     document.getElementById("login-password").value = document.getElementById("reg-password").value;
     showPage("login-page");
@@ -362,6 +469,7 @@ async function openDocument(docId) {
   document.getElementById("perm-error").textContent = "";
   document.getElementById("add-perm-section").style.display = "none";
   document.getElementById("editor-status").textContent = "Connecting…";
+  resetAIPanel();
 
   try {
     const doc = await apiFetch(`/documents/${docId}`);
@@ -386,12 +494,9 @@ function goBack() {
 function connectWS(docId) {
   disconnectWS();
   const wsProto = location.protocol === "https:" ? "wss" : "ws";
-  const url = `${wsProto}://${location.host}/ws/documents/${docId}?token=${token}`;
-  ws = new WebSocket(url);
+  ws = new WebSocket(`${wsProto}://${location.host}/ws/documents/${docId}?token=${token}`);
 
-  ws.onopen = () => {
-    document.getElementById("editor-status").textContent = "Connected";
-  };
+  ws.onopen = () => { document.getElementById("editor-status").textContent = "Connected"; };
 
   ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
@@ -402,7 +507,6 @@ function connectWS(docId) {
       ta.disabled = !["editor", "owner"].includes(msg.role);
       renderActiveUsers(msg.active_users);
     } else if (msg.type === "update") {
-      // Only update if different (avoid overwriting local typing)
       const ta = document.getElementById("editor-content");
       const incoming = msg.content?.text || "";
       if (ta.value !== incoming) {
@@ -411,7 +515,7 @@ function connectWS(docId) {
         try { ta.setSelectionRange(sel.s, sel.e); } catch(_) {}
       }
       document.getElementById("editor-status").textContent = `Updated by ${msg.user.name}`;
-      setTimeout(() => { if(document.getElementById("editor-status")) document.getElementById("editor-status").textContent = "Saved"; }, 2000);
+      setTimeout(() => { document.getElementById("editor-status").textContent = "Saved"; }, 2000);
     } else if (msg.type === "user_joined") {
       refreshActiveUsers(msg.user, true);
     } else if (msg.type === "user_left") {
@@ -419,13 +523,8 @@ function connectWS(docId) {
     }
   };
 
-  ws.onclose = () => {
-    document.getElementById("editor-status").textContent = "Disconnected";
-  };
-
-  ws.onerror = () => {
-    document.getElementById("editor-status").textContent = "Connection error";
-  };
+  ws.onclose = () => { document.getElementById("editor-status").textContent = "Disconnected"; };
+  ws.onerror = () => { document.getElementById("editor-status").textContent = "Connection error"; };
 }
 
 function disconnectWS() {
@@ -456,10 +555,10 @@ function onContentChange() {
   saveTimer = setTimeout(broadcastUpdate, 600);
 }
 
-function broadcastUpdate(saveVersion = false) {
+function broadcastUpdate(saveVer = false) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
   const content = { text: document.getElementById("editor-content").value };
-  ws.send(JSON.stringify({ type: "update", content, save_version: saveVersion }));
+  ws.send(JSON.stringify({ type: "update", content, save_version: saveVer }));
   document.getElementById("editor-status").textContent = "Saved";
 }
 
@@ -475,9 +574,7 @@ async function saveTitle() {
   try {
     await apiFetch(`/documents/${currentDoc.id}`, { method: "PUT", body: JSON.stringify({ title }) });
     currentDoc.title = title;
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 // ─── Permissions ─────────────────────────────────────────────────────────────
@@ -486,28 +583,22 @@ async function loadPermissions(docId) {
     const data = await apiFetch(`/documents/${docId}/permissions`);
     const list = document.getElementById("perm-list");
     const isOwner = currentDoc?.owner_id === currentUser.id;
-
     list.innerHTML = data.permissions.map(p => `
       <div class="perm-row">
         <span>${esc(p.user_name)}</span>
         <span class="perm-role">${p.role}</span>
         ${isOwner ? `
-          <select onchange="updatePerm(${docId}, ${p.user_id}, this.value)" style="font-size:.78rem;padding:.15rem .3rem">
+          <select onchange="updatePerm(${docId},${p.user_id},this.value)" style="font-size:.78rem;padding:.15rem .3rem">
             <option ${p.role==='editor'?'selected':''} value="editor">Editor</option>
             <option ${p.role==='commenter'?'selected':''} value="commenter">Commenter</option>
             <option ${p.role==='viewer'?'selected':''} value="viewer">Viewer</option>
           </select>
-          <button class="btn btn-sm btn-danger" style="padding:.15rem .4rem;font-size:.75rem" onclick="revokePerm(${docId}, ${p.user_id})">✕</button>
+          <button class="btn btn-sm btn-danger" style="padding:.15rem .4rem;font-size:.75rem" onclick="revokePerm(${docId},${p.user_id})">✕</button>
         ` : ''}
       </div>
     `).join("") || '<div style="color:#aaa;font-size:.85rem">No shared users</div>';
-
-    if (isOwner) {
-      document.getElementById("add-perm-section").style.display = "block";
-    }
-  } catch (e) {
-    console.error(e);
-  }
+    if (isOwner) document.getElementById("add-perm-section").style.display = "block";
+  } catch (e) { console.error(e); }
 }
 
 let searchTimer = null;
@@ -518,13 +609,11 @@ async function searchUsers(q) {
   searchTimer = setTimeout(async () => {
     try {
       const data = await apiFetch(`/auth/users/search?q=${encodeURIComponent(q)}`);
-      if (data.users.length === 0) {
-        results.innerHTML = '<div style="padding:.5rem;color:#aaa;font-size:.85rem">No users found</div>';
-      } else {
-        results.innerHTML = data.users.map(u =>
-          `<div style="padding:.5rem .7rem;cursor:pointer;font-size:.85rem;border-bottom:1px solid #f0f0f0" onmousedown="selectUser(${u.id},'${esc(u.name)}','${esc(u.email)}')">${esc(u.name)} <span style="color:#aaa">${esc(u.email)}</span></div>`
-        ).join("");
-      }
+      results.innerHTML = data.users.length === 0
+        ? '<div style="padding:.5rem;color:#aaa;font-size:.85rem">No users found</div>'
+        : data.users.map(u =>
+            `<div style="padding:.5rem .7rem;cursor:pointer;font-size:.85rem;border-bottom:1px solid #f0f0f0" onmousedown="selectUser(${u.id},'${esc(u.name)}','${esc(u.email)}')">${esc(u.name)} <span style="color:#aaa">${esc(u.email)}</span></div>`
+          ).join("");
       results.style.display = "block";
     } catch(_) {}
   }, 300);
@@ -534,9 +623,8 @@ function selectUser(id, name, email) {
   document.getElementById("perm-user-id").value = id;
   document.getElementById("perm-search").value = "";
   document.getElementById("user-search-results").style.display = "none";
-  const display = document.getElementById("selected-user-display");
   document.getElementById("selected-user-label").textContent = `${name} (${email})`;
-  display.style.display = "flex";
+  document.getElementById("selected-user-display").style.display = "flex";
 }
 
 function clearSelectedUser() {
@@ -553,26 +641,20 @@ async function grantPermission() {
   if (!userId) { document.getElementById("perm-error").textContent = "Search and select a user first"; return; }
   try {
     await apiFetch(`/documents/${docId}/permissions`, {
-      method: "POST",
-      body: JSON.stringify({ user_id: userId, role }),
+      method: "POST", body: JSON.stringify({ user_id: userId, role }),
     });
     clearSelectedUser();
     loadPermissions(docId);
-  } catch (e) {
-    document.getElementById("perm-error").textContent = e.message;
-  }
+  } catch (e) { document.getElementById("perm-error").textContent = e.message; }
 }
 
 async function updatePerm(docId, userId, role) {
   try {
     await apiFetch(`/documents/${docId}/permissions/${userId}`, {
-      method: "PUT",
-      body: JSON.stringify({ role }),
+      method: "PUT", body: JSON.stringify({ role }),
     });
     loadPermissions(docId);
-  } catch (e) {
-    alert(e.message);
-  }
+  } catch (e) { alert(e.message); }
 }
 
 async function revokePerm(docId, userId) {
@@ -580,9 +662,7 @@ async function revokePerm(docId, userId) {
   try {
     await apiFetch(`/documents/${docId}/permissions/${userId}`, { method: "DELETE" });
     loadPermissions(docId);
-  } catch (e) {
-    alert(e.message);
-  }
+  } catch (e) { alert(e.message); }
 }
 
 // ─── Versions ────────────────────────────────────────────────────────────────
@@ -597,12 +677,10 @@ async function loadVersions(docId) {
     list.innerHTML = data.versions.map(v => `
       <div class="version-row">
         <span>v${v.version_number} — ${new Date(v.created_at).toLocaleTimeString()}</span>
-        <button class="btn btn-sm" style="font-size:.75rem;padding:.15rem .4rem" onclick="restoreVersion(${docId}, ${v.version_number})">Restore</button>
+        <button class="btn btn-sm" style="font-size:.75rem;padding:.15rem .4rem" onclick="restoreVersion(${docId},${v.version_number})">Restore</button>
       </div>
     `).join("");
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 async function restoreVersion(docId, versionNumber) {
@@ -612,14 +690,112 @@ async function restoreVersion(docId, versionNumber) {
     document.getElementById("editor-content").value = data.document.content?.text || "";
     broadcastUpdate();
     loadVersions(docId);
+  } catch (e) { alert(e.message); }
+}
+
+// ─── AI Assistant ─────────────────────────────────────────────────────────────
+let aiSelectedText = "";
+let aiSelectionStart = 0;
+let aiSelectionEnd = 0;
+let aiSuggestion = "";
+
+const ACTION_LABELS = {
+  rewrite: "Rewrite",
+  summarize: "Summarize",
+  translate: "Translate",
+  restructure: "Restructure",
+};
+
+function resetAIPanel() {
+  aiSelectedText = "";
+  aiSuggestion = "";
+  document.getElementById("ai-idle").style.display = "block";
+  document.getElementById("ai-selection-preview").style.display = "none";
+  document.getElementById("ai-loading").style.display = "none";
+  document.getElementById("ai-result").style.display = "none";
+  document.getElementById("ai-error").style.display = "none";
+}
+
+function checkAISelection() {
+  const ta = document.getElementById("editor-content");
+  if (!ta || ta.disabled) return;
+  const s = ta.selectionStart;
+  const e = ta.selectionEnd;
+
+  if (s === e) {
+    // Deselected — only reset if no result is showing
+    if (document.getElementById("ai-result").style.display === "none" &&
+        document.getElementById("ai-loading").style.display === "none") {
+      resetAIPanel();
+    }
+    return;
+  }
+
+  aiSelectedText = ta.value.substring(s, e);
+  aiSelectionStart = s;
+  aiSelectionEnd = e;
+
+  const wordCount = aiSelectedText.trim().split(/\s+/).filter(Boolean).length;
+  document.getElementById("ai-selection-text").textContent = aiSelectedText;
+  document.getElementById("ai-word-count").textContent = `${wordCount} word${wordCount !== 1 ? "s" : ""}`;
+
+  document.getElementById("ai-idle").style.display = "none";
+  document.getElementById("ai-selection-preview").style.display = "block";
+  document.getElementById("ai-loading").style.display = "none";
+  document.getElementById("ai-result").style.display = "none";
+  document.getElementById("ai-error").style.display = "none";
+
+  // Re-enable action buttons in case they were disabled
+  document.getElementById("ai-action-grid").querySelectorAll("button").forEach(b => b.disabled = false);
+}
+
+async function callAI(action) {
+  if (!aiSelectedText || !currentDoc) return;
+
+  document.getElementById("ai-loading-label").textContent = `${ACTION_LABELS[action] || action}…`;
+  document.getElementById("ai-loading").style.display = "block";
+  document.getElementById("ai-result").style.display = "none";
+  document.getElementById("ai-error").style.display = "none";
+  document.getElementById("ai-action-grid").querySelectorAll("button").forEach(b => b.disabled = true);
+
+  try {
+    const ta = document.getElementById("editor-content");
+    const data = await apiFetch(`/documents/${currentDoc.id}/ai/assist`, {
+      method: "POST",
+      body: JSON.stringify({
+        selected_text: aiSelectedText,
+        action,
+        context: ta.value.substring(0, 500),
+      }),
+    });
+    aiSuggestion = data.suggestion;
+    document.getElementById("ai-result-badge").textContent = ACTION_LABELS[action] || action;
+    document.getElementById("ai-suggestion-text").textContent = aiSuggestion;
+    document.getElementById("ai-result").style.display = "block";
   } catch (e) {
-    alert(e.message);
+    document.getElementById("ai-error").textContent = "Error: " + e.message;
+    document.getElementById("ai-error").style.display = "block";
+    // Restore selection preview so user can try again
+    document.getElementById("ai-action-grid").querySelectorAll("button").forEach(b => b.disabled = false);
+  } finally {
+    document.getElementById("ai-loading").style.display = "none";
   }
 }
 
-// ─── Utils ───────────────────────────────────────────────────────────────────
-function esc(str) {
-  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function acceptAI() {
+  if (!aiSuggestion) return;
+  const ta = document.getElementById("editor-content");
+  ta.value = ta.value.substring(0, aiSelectionStart) + aiSuggestion + ta.value.substring(aiSelectionEnd);
+  aiSelectionEnd = aiSelectionStart + aiSuggestion.length;
+  aiSuggestion = "";
+  onContentChange();
+  resetAIPanel();
+}
+
+function rejectAI() {
+  aiSuggestion = "";
+  // Go back to showing the selection (it may have changed, so just reset)
+  resetAIPanel();
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────

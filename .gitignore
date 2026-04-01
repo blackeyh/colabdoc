@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
+backend/__pycache__/
 
 # Virtual environments
 .venv
@@ -12,3 +13,7 @@ wheels/
 # Secrets
 env
 .env
+
+uv.lock
+pyproject.toml
+.python-version
