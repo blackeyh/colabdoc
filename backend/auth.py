@@ -1,20 +1,17 @@
-import os
 from datetime import datetime, timedelta
 from typing import Optional
-from dotenv import load_dotenv
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from database import get_db
+from config import get_env
 import models
 
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
-
-JWT_SECRET = os.getenv("JWT_SECRET", "fallback-secret")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
+JWT_SECRET = get_env("JWT_SECRET", "fallback-secret")
+JWT_ALGORITHM = get_env("JWT_ALGORITHM", "HS256")
+JWT_EXPIRE_MINUTES = int(get_env("JWT_EXPIRE_MINUTES", "1440"))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
