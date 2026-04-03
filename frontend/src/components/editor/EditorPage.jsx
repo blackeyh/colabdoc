@@ -15,6 +15,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
   const [remoteCursors, setRemoteCursors] = useState({})
   const [versions, setVersions] = useState([])
   const [permissions, setPermissions] = useState([])
+  const [selection, setSelection] = useState({ start: 0, end: 0, text: '' })
   const saveTimerRef = useRef(null)
   const contentRef = useRef(content)
   contentRef.current = content
@@ -128,6 +129,10 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
     send({ type: 'cursor', position })
   }
 
+  function handleSelectionChange(nextSelection) {
+    setSelection(nextSelection)
+  }
+
   function handleSaveVersion() {
     if (!canEdit) {
       showToast('Only editors and owners can save versions.', 'warning')
@@ -220,6 +225,22 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
     onBack()
   }
 
+  function handleAcceptAISuggestion(suggestion) {
+    if (!canEdit) {
+      showToast('You need edit access to apply an AI suggestion.', 'warning')
+      return
+    }
+    const start = selection.start ?? 0
+    const end = selection.end ?? start
+    const nextContent = contentRef.current.slice(0, start) + suggestion + contentRef.current.slice(end)
+    setSelection({
+      start,
+      end: start + suggestion.length,
+      text: suggestion,
+    })
+    onContentChange(nextContent)
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <EditorBar
@@ -239,6 +260,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
           remoteCursors={remoteCursors}
           onChange={onContentChange}
           onCursorChange={onCursorChange}
+          onSelectionChange={handleSelectionChange}
         />
         <Sidebar
           role={role}
@@ -249,10 +271,13 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
           versions={versions}
           docId={docId}
           currentUser={currentUser}
+          selectedText={selection.text}
+          context={content.slice(0, 500)}
           onGrantPermission={handleGrantPermission}
           onUpdatePermission={handleUpdatePermission}
           onRevokePermission={handleRevokePermission}
           onRestoreVersion={handleRestoreVersion}
+          onAcceptAISuggestion={handleAcceptAISuggestion}
           showToast={showToast}
         />
       </div>

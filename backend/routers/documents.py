@@ -2,8 +2,10 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import Optional
+import httpx
 from sqlalchemy.orm import Session
 from database import get_db
+from config import get_env
 import models
 import auth as auth_utils
 
@@ -17,6 +19,12 @@ class CreateDocumentRequest(BaseModel):
 class UpdateDocumentRequest(BaseModel):
     title: Optional[str] = None
     content: Optional[dict] = None
+
+
+class AssistRequest(BaseModel):
+    selected_text: str
+    action: str
+    context: Optional[str] = None
 
 
 def _get_doc_or_404(doc_id: int, db: Session) -> models.Document:
@@ -34,6 +42,76 @@ def _require_access(doc: models.Document, user: models.User, db: Session, min_ro
     if order.get(role, -1) < order.get(min_role, 0):
         raise HTTPException(status_code=403, detail="Insufficient permission")
     return role
+
+
+AI_ACTIONS = {"rewrite", "summarize", "translate", "restructure"}
+
+
+def _local_ai_fallback(action: str, selected_text: str, context: str | None = None) -> str:
+    text = selected_text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Selected text is required")
+
+    if action == "rewrite":
+        return f"Polished version:\n\n{text}"
+
+    if action == "summarize":
+        words = text.split()
+        preview = " ".join(words[: min(30, len(words))])
+        suffix = "..." if len(words) > 30 else ""
+        return f"Summary: {preview}{suffix}"
+
+    if action == "translate":
+        return f"Translation placeholder:\n\n{text}\n\nSet OPENAI_API_KEY to enable live translation."
+
+    if action == "restructure":
+        sentences = [s.strip() for s in text.replace("\n", " ").split(".") if s.strip()]
+        if len(sentences) <= 1:
+            return f"Restructured version:\n\n- {text}"
+        return "Restructured version:\n\n" + "\n".join(f"- {sentence}" for sentence in sentences)
+
+    raise HTTPException(status_code=400, detail="Unsupported AI action")
+
+
+async def _generate_ai_suggestion(action: str, selected_text: str, context: str | None = None) -> str:
+    api_key = get_env("OPENAI_API_KEY")
+    model = get_env("OPENAI_MODEL", "gpt-4.1-mini")
+
+    if not api_key:
+        return _local_ai_fallback(action, selected_text, context)
+
+    action_instructions = {
+        "rewrite": "Rewrite the selected text to be clearer and more polished while preserving meaning.",
+        "summarize": "Summarize the selected text concisely.",
+        "translate": "Translate the selected text into clear modern English.",
+        "restructure": "Restructure the selected text into a more readable format without changing meaning.",
+    }
+    prompt = (
+        f"{action_instructions[action]}\n\n"
+        f"Document context:\n{(context or '').strip() or '[none]'}\n\n"
+        f"Selected text:\n{selected_text.strip()}\n\n"
+        "Return only the transformed text. Do not add commentary or labels."
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/responses",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "input": prompt,
+                },
+            )
+        response.raise_for_status()
+        data = response.json()
+        suggestion = data.get("output_text", "").strip()
+        return suggestion or _local_ai_fallback(action, selected_text, context)
+    except Exception:
+        return _local_ai_fallback(action, selected_text, context)
 
 
 @router.get("")
@@ -145,3 +223,21 @@ def delete_document(
     db.delete(doc)
     db.commit()
     return {"message": "Document deleted successfully"}
+
+
+@router.post("/{doc_id}/ai/assist")
+async def ai_assist_document(
+    doc_id: int,
+    body: AssistRequest,
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(get_db),
+):
+    doc = _get_doc_or_404(doc_id, db)
+    _require_access(doc, current_user, db, "viewer")
+
+    action = body.action.strip().lower()
+    if action not in AI_ACTIONS:
+        raise HTTPException(status_code=400, detail="Unsupported AI action")
+
+    suggestion = await _generate_ai_suggestion(action, body.selected_text, body.context)
+    return {"suggestion": suggestion}
