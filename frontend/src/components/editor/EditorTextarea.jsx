@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react'
+import React, { useRef, useCallback, useEffect } from 'react'
 
 // Returns a stable color for each collaborator cursor
 const CURSOR_COLORS = [
@@ -21,7 +21,15 @@ function readOnlyMessage(role) {
   return null
 }
 
-export default function EditorTextarea({ content, canEdit, role, remoteCursors, onChange, onCursorChange }) {
+export default function EditorTextarea({
+  content,
+  canEdit,
+  role,
+  remoteCursors,
+  onChange,
+  onCursorChange,
+  onSelectionChange,
+}) {
   const taRef = useRef(null)
 
   const handleChange = useCallback(e => onChange(e.target.value), [onChange])
@@ -30,7 +38,22 @@ export default function EditorTextarea({ content, canEdit, role, remoteCursors, 
     const ta = taRef.current
     if (!ta) return
     onCursorChange({ start: ta.selectionStart, end: ta.selectionEnd })
-  }, [onCursorChange])
+    onSelectionChange?.({
+      start: ta.selectionStart,
+      end: ta.selectionEnd,
+      text: ta.value.substring(ta.selectionStart, ta.selectionEnd),
+    })
+  }, [onCursorChange, onSelectionChange])
+
+  useEffect(() => {
+    const ta = taRef.current
+    if (!ta) return
+    onSelectionChange?.({
+      start: ta.selectionStart,
+      end: ta.selectionEnd,
+      text: ta.value.substring(ta.selectionStart, ta.selectionEnd),
+    })
+  }, [content, onSelectionChange])
 
   const msg = !canEdit ? readOnlyMessage(role) : null
 

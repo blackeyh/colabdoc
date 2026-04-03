@@ -1,11 +1,16 @@
-import os
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
+from config import require_env
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+
+def _normalize_database_url(url: str) -> str:
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
+
+
+DATABASE_URL = _normalize_database_url(require_env("DATABASE_URL"))
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
