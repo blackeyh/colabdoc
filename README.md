@@ -1,11 +1,19 @@
 # ColabDoc
 
-A collaborative document editor with real-time co-editing, user authentication, and permission management.
+A collaborative document editor with real-time co-editing, user authentication, permission management, version history, and an AI assistant sidebar.
 
 ## Requirements
 
 - Python 3.12+
-- pip
+- Node.js 18+
+- npm
+
+## Tech Stack
+
+- Backend: FastAPI + SQLAlchemy + PostgreSQL
+- Frontend: React + Vite
+- Realtime: WebSockets
+- Auth: JWT
 
 ## Setup
 
@@ -15,12 +23,25 @@ git clone https://github.com/blackeyh/colabdoc
 cd colabdoc
 ```
 
-**2. Install dependencies**
+**2. Create and activate a virtual environment**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+**3. Install backend dependencies**
 ```bash
 pip install -r backend/requirements.txt
 ```
 
-**3. Create the `env` file** in the project root with the following:
+**4. Install frontend dependencies**
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+**5. Create an `env` or `.env` file** in the project root:
 ```
 DATABASE_URL=postgresql://neondb_owner:npg_NpCsDMbuvW09@ep-raspy-sky-anzefd9q-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 JWT_SECRET=supersecretjwtkey2026colabdoc
@@ -31,12 +52,37 @@ LM_STUDIO_MODEL=local-model
 
 ```
 
-**4. Run the server**
+Optional AI configuration:
+```
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+The backend loads configuration from either `env` or `.env`.
+
+**6. Run the app**
 ```bash
 ./start.sh
 ```
 
-Then open [http://localhost:8000](http://localhost:8000) in your browser.
+This script:
+
+- installs frontend packages if needed
+- builds the React app into `frontend/dist`
+- starts the FastAPI server on port `8000`
+
+Then open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser.
+
+## Development Notes
+
+- API docs are available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+- The backend serves the built frontend from `frontend/dist`.
+- If you want to run the backend manually, use:
+
+```bash
+cd backend
+../.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+```
 
 ## Features
 
@@ -46,6 +92,7 @@ Then open [http://localhost:8000](http://localhost:8000) in your browser.
 - Set permissions: Editor, Commenter, Viewer
 - Real-time collaborative editing via WebSockets
 - Version history with restore
+- AI assistant panel for document help
 
 ## Project Structure
 
@@ -56,11 +103,8 @@ backend/          FastAPI backend
   auth.py         JWT authentication
   routers/        API route handlers (auth, documents, permissions, versions)
 frontend/
-  index.html      Single-page frontend (vanilla JS)
-env               Environment variables (do not commit)
+  src/            React application source
+  dist/           Production build output
+env / .env        Environment variables (do not commit)
 start.sh          Server startup script
 ```
-
-## API Docs
-
-Available at [http://localhost:8000/docs](http://localhost:8000/docs) when running locally.
