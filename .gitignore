@@ -5,14 +5,20 @@ build/
 dist/
 wheels/
 *.egg-info
+backend/__pycache__/
 
 # Virtual environments
-.venv
+.venva
 
 # Secrets
 env
 .env
 
+uv.lock
+pyproject.toml
+.python-version
+
 # Frontend
 frontend/node_modules/
 frontend/dist/
+

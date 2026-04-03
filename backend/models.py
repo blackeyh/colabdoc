@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional
 from sqlalchemy import Integer, String, Text, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
@@ -32,6 +33,7 @@ class Document(Base):
     owner = relationship("User", back_populates="documents")
     permissions = relationship("Permission", back_populates="document", cascade="all, delete")
     versions = relationship("Version", back_populates="document", cascade="all, delete")
+    ai_interactions = relationship("AIInteraction", back_populates="document", cascade="all, delete")
 
 
 class Permission(Base):
@@ -60,3 +62,20 @@ class Version(Base):
 
     document = relationship("Document", back_populates="versions")
     creator = relationship("User")
+
+
+class AIInteraction(Base):
+    __tablename__ = "ai_interactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    document_id: Mapped[int] = mapped_column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    selected_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    action: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    suggestion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False,
+                                                  default=lambda: datetime.now(timezone.utc))
+
+    document = relationship("Document", back_populates="ai_interactions")
+    user = relationship("User")
