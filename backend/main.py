@@ -124,7 +124,7 @@ async def document_ws(
         db.close()
 
 
-# Serve frontend
-frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
+# Serve built React frontend from frontend/dist/
+frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.isdir(frontend_dir):
     app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
