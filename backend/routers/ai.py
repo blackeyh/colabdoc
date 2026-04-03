@@ -62,7 +62,9 @@ def _call_ai(action: str, selected_text: str, context: Optional[str]) -> str:
     prompt = _build_prompt(action, selected_text, context)
     base_url = os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234/v1")
     model = os.getenv("LM_STUDIO_MODEL", "local-model")
-
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Calling AI with action='{action}', prompt snippet hidden for security, model='{model}'")
     client = OpenAI(base_url=base_url, api_key="lm-studio")
     response = client.chat.completions.create(
         model=model,
@@ -88,7 +90,6 @@ def ai_assist(
     role = auth_utils.get_document_permission(doc, current_user, db)
     if role is None:
         raise HTTPException(status_code=403, detail="No permission")
-
     interaction = models.AIInteraction(
         document_id=doc_id,
         user_id=current_user.id,
