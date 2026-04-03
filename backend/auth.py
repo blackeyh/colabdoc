@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", "env"))
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 JWT_SECRET = os.getenv("JWT_SECRET", "fallback-secret")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
