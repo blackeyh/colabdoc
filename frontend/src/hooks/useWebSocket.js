@@ -1,7 +1,26 @@
 import { useRef, useEffect, useCallback } from 'react'
-import { getToken } from '../api'
+import { getToken, getRefreshToken, setTokens } from '../api'
 
 const MAX_BACKOFF = 16000
+
+async function tryRefresh() {
+  const refresh_token = getRefreshToken()
+  if (!refresh_token) return false
+  try {
+    const res = await fetch(`${window.location.origin}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token }),
+    })
+    if (!res.ok) return false
+    const data = await res.json()
+    if (!data?.access_token) return false
+    setTokens(data)
+    return true
+  } catch (_) {
+    return false
+  }
+}
 
 export function useWebSocket({ docId, onMessage, onStatusChange, enabled = true }) {
   const wsRef = useRef(null)
@@ -50,9 +69,16 @@ export function useWebSocket({ docId, onMessage, onStatusChange, enabled = true 
       } catch (_) {}
     }
 
-    sock.onclose = (evt) => {
+    sock.onclose = async (evt) => {
       wsRef.current = null
       if (evt.code === 4001) {
+        // Try silent refresh once; if it works, reconnect with the new access token.
+        const refreshed = await tryRefresh()
+        if (refreshed && shouldReconnectRef.current) {
+          onStatusChangeRef.current?.('reconnecting')
+          connect()
+          return
+        }
         window.dispatchEvent(new Event('session-expired'))
         return
       }

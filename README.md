@@ -41,22 +41,28 @@ npm install
 cd ..
 ```
 
-**5. Create an `env` or `.env` file** in the project root:
-```
-DATABASE_URL=postgresql://neondb_owner:npg_NpCsDMbuvW09@ep-raspy-sky-anzefd9q-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-JWT_SECRET=supersecretjwtkey2026colabdoc
-JWT_ALGORITHM=HS256
-JWT_EXPIRE_MINUTES=1440
-LM_STUDIO_BASE_URL=http://127.0.0.1:1234/v1
-LM_STUDIO_MODEL=local-model
+**5. Create an `env` or `.env` file** in the project root.
 
+Copy `.env.example` and fill in the values:
+
+```bash
+cp .env.example .env
 ```
 
-Optional AI configuration:
-```
-OPENAI_API_KEY=your_openai_api_key
-OPENAI_MODEL=gpt-4.1-mini
-```
+Required variables (see `.env.example` for documentation):
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | SQLAlchemy URL for Postgres (SQLite is used in tests only) |
+| `JWT_SECRET` | Secret used to sign access and refresh tokens |
+| `JWT_ALGORITHM` | Signing algorithm (default `HS256`) |
+| `JWT_ACCESS_MINUTES` | Access-token lifetime in minutes (default `20`) |
+| `JWT_REFRESH_DAYS` | Refresh-token lifetime in days (default `7`) |
+| `AI_PROVIDER` | `null` (canned responses, default) or `openai` |
+| `LM_STUDIO_BASE_URL` | OpenAI-compatible endpoint (LM Studio or api.openai.com) |
+| `LM_STUDIO_MODEL` | Model identifier |
+| `OPENAI_API_KEY` | Optional; required when hitting api.openai.com |
+| `OPENAI_MODEL` | Optional; model identifier for the OpenAI provider |
 
 The backend loads configuration from either `env` or `.env`.
 
@@ -93,6 +99,88 @@ cd backend
 - Real-time collaborative editing via WebSockets
 - Version history with restore
 - AI assistant panel for document help
+
+## WebSocket Protocol
+
+Clients open an authenticated WebSocket at `/ws/documents/{doc_id}?token={access_token}`.
+The access token is the short-lived JWT issued by `POST /auth/login` (see [Authentication](#authentication)).
+
+### Close codes
+
+| Code | Meaning |
+|---|---|
+| `4001` | Invalid or expired access token. Client should refresh and reconnect. |
+| `4003` | User has no permission on this document. |
+| `4004` | Document not found. |
+
+### Server → client messages
+
+| Type | Payload | Emitted when |
+|---|---|---|
+| `init` | `{content, title, role, active_users}` | Immediately after auth, to seed local state. |
+| `update` | `{content, user}` | Another user persisted a change. |
+| `cursor` | `{user, position}` | Another user moved their selection. |
+| `typing` | `{user}` | Another user sent a typing ping. |
+| `user_joined` | `{user}` | A collaborator joined the room. |
+| `user_left` | `{user}` | A collaborator disconnected. |
+
+`content` is JSON-B on the wire: either the Tiptap document shape (`{type:"doc", content:[…]}`)
+or the legacy plain-text shape (`{text:"…"}`) for documents that predate the rich-text editor.
+The frontend normalizes both via `frontend/src/lib/contentCompat.js`.
+
+### Client → server messages
+
+| Type | Payload | Effect |
+|---|---|---|
+| `update` | `{content, save_version?}` | Persist the document; optionally snapshot a new Version. Requires `editor` or `owner` role. |
+| `cursor` | `{position}` | Broadcast selection position. |
+| `typing` | `{}` | Broadcast a typing indicator (rate-limited by the client). |
+
+### Offline behaviour
+
+While the socket is disconnected, the frontend queues a single last-write-wins
+update and flushes it on reconnect. This is an intentional simplification — a
+CRDT (e.g. Yjs) would preserve concurrent edits, but is out of scope.
+
+## Authentication
+
+`POST /auth/login` returns a short-lived access token (default 20 minutes) and a
+refresh token (default 7 days). The frontend stores both in `localStorage` and
+uses a single-flight refresh on 401: `api.js` automatically hits
+`POST /auth/refresh` with the refresh token, updates both tokens, and retries
+the original request once. The WebSocket hook attempts the same refresh on close
+code `4001` before surfacing a session-expired event.
+
+Trade-off: `localStorage` is uniform with the existing Bearer/WebSocket auth
+surface but is vulnerable to XSS. Moving the refresh token to an `HttpOnly`
+cookie is tracked in `DEVIATIONS.md`.
+
+## Testing
+
+### Backend (pytest)
+
+```bash
+pip install -r backend/requirements.txt
+pytest -q
+```
+
+Tests run against an in-memory SQLite database. `database.py` exposes a
+dialect-aware `JSONType` that picks `JSONB` on Postgres and `JSON` on SQLite,
+so the same models work in both places. `AI_PROVIDER` defaults to `null`
+under test, meaning the full AI flow is exercised against the canned
+`NullProvider` — no model required.
+
+### Frontend (vitest)
+
+```bash
+cd frontend
+npm install
+npm run test
+```
+
+Vitest runs under `jsdom` with `@testing-library/react`. Tests live in
+`frontend/tests/`. `apiFetch` is mocked at the module boundary so specs don't
+depend on a running backend.
 
 ## Project Structure
 

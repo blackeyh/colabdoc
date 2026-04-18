@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { apiFetch } from '../../api'
+import { apiFetch, setTokens } from '../../api'
 
 export default function LoginPage({ onLogin, onGoRegister }) {
   const [email, setEmail] = useState('')
@@ -16,7 +16,10 @@ export default function LoginPage({ onLogin, onGoRegister }) {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       })
-      localStorage.setItem('token', data.token)
+      setTokens({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      })
       localStorage.setItem('user', JSON.stringify(data.user))
       onLogin(data.user)
     } catch (err) {

@@ -4,21 +4,30 @@ import { useWebSocket } from '../../hooks/useWebSocket'
 import EditorBar from './EditorBar'
 import EditorTextarea from './EditorTextarea'
 import Sidebar from './sidebar/Sidebar'
+import { toTiptap, extractPlainText, EMPTY_TIPTAP_DOC } from '../../lib/contentCompat'
+
+const SAVE_DEBOUNCE_MS = 600
+const TYPING_THROTTLE_MS = 2000
 
 export default function EditorPage({ initialDoc, currentUser, onBack, showToast }) {
   const [doc, setDoc] = useState(initialDoc)
-  const [content, setContent] = useState('')
+  const [content, setContent] = useState(EMPTY_TIPTAP_DOC)
   const [role, setRole] = useState(null)
   const [wsStatus, setWsStatus] = useState('connecting')
   const [activeUsers, setActiveUsers] = useState([])
-  // remoteCursors: { [userId]: { start, end, name } }
+  const [typingUsers, setTypingUsers] = useState({})
   const [remoteCursors, setRemoteCursors] = useState({})
   const [versions, setVersions] = useState([])
   const [permissions, setPermissions] = useState([])
   const [selection, setSelection] = useState({ start: 0, end: 0, text: '' })
   const saveTimerRef = useRef(null)
+  const typingEmittedAtRef = useRef(0)
   const contentRef = useRef(content)
   contentRef.current = content
+  const offlineQueueRef = useRef(null)
+  const wsStatusRef = useRef(wsStatus)
+  wsStatusRef.current = wsStatus
+  const editorRef = useRef(null)
 
   const docId = doc?.id
   const canEdit = ['editor', 'owner'].includes(role)
@@ -28,17 +37,15 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
   const handleWsMessage = useCallback((msg) => {
     switch (msg.type) {
       case 'init':
-        // Covers both first connect and reconnect/resync
         setRole(msg.role)
-        setContent(msg.content?.text ?? '')
+        setContent(toTiptap(msg.content))
         setActiveUsers(msg.active_users ?? [])
         break
 
       case 'update': {
-        const incoming = msg.content?.text ?? ''
-        setContent(prev => prev !== incoming ? incoming : prev)
+        setContent(toTiptap(msg.content))
         setWsStatus('saved')
-        setTimeout(() => setWsStatus(s => s === 'saved' ? 'connected' : s), 2000)
+        setTimeout(() => setWsStatus(s => (s === 'saved' ? 'connected' : s)), 2000)
         break
       }
 
@@ -55,6 +62,11 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
           delete next[msg.user.id]
           return next
         })
+        setTypingUsers(prev => {
+          const next = { ...prev }
+          delete next[msg.user.id]
+          return next
+        })
         break
 
       case 'cursor':
@@ -64,17 +76,77 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
         }))
         break
 
+      case 'typing': {
+        const uid = msg.user?.id
+        if (!uid) break
+        setTypingUsers(prev => ({
+          ...prev,
+          [uid]: { name: msg.user.name, ts: Date.now() },
+        }))
+        break
+      }
+
       default:
         break
     }
   }, [])
 
+  const flushOfflineQueue = useCallback(() => {
+    if (!offlineQueueRef.current) return
+    const pending = offlineQueueRef.current
+    offlineQueueRef.current = null
+    send({ type: 'update', content: pending, save_version: false })
+    setWsStatus('saved')
+  }, [])
+
+  const handleReconnect = useCallback(async () => {
+    if (!docId) return
+    try {
+      const fresh = await apiFetch(`/documents/${docId}`)
+      setDoc(fresh)
+      setContent(toTiptap(fresh.content))
+    } catch (_) {
+      // Permission/network errors bubble up via status change; no toast spam.
+    }
+    flushOfflineQueue()
+  }, [docId, flushOfflineQueue])
+
+  const handleStatusChange = useCallback((status) => {
+    setWsStatus(prev => {
+      if (status === 'connected' && prev !== 'connected') {
+        // Ran onopen — re-sync after reconnect.
+        queueMicrotask(handleReconnect)
+      }
+      return status
+    })
+    if (status === 'disconnected' || status === 'reconnecting') {
+      // Keep offline indicator visible until connected.
+    }
+  }, [handleReconnect])
+
   const { send, disconnect } = useWebSocket({
     docId,
     onMessage: handleWsMessage,
-    onStatusChange: setWsStatus,
+    onStatusChange: handleStatusChange,
     enabled: !!docId,
   })
+
+  // ─── Expire typing indicators ──────────────────────────────────────────────
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTypingUsers(prev => {
+        const now = Date.now()
+        let changed = false
+        const next = {}
+        for (const [uid, info] of Object.entries(prev)) {
+          if (now - info.ts < 3000) next[uid] = info
+          else changed = true
+        }
+        return changed ? next : prev
+      })
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   // ─── Load REST data ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -82,7 +154,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
     apiFetch(`/documents/${docId}`)
       .then(d => {
         setDoc(d)
-        setContent(d.content?.text ?? '')
+        setContent(toTiptap(d.content))
       })
       .catch(e => {
         showToast(e.message, 'error')
@@ -106,8 +178,30 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
     } catch (_) {}
   }
 
+  function emitTypingPing() {
+    const now = Date.now()
+    if (now - typingEmittedAtRef.current < TYPING_THROTTLE_MS) return
+    typingEmittedAtRef.current = now
+    send({ type: 'typing' })
+  }
+
+  function sendUpdate(json) {
+    if (wsStatusRef.current === 'connected') {
+      try {
+        send({ type: 'update', content: json, save_version: false })
+        setWsStatus('saved')
+      } catch (_) {
+        setWsStatus('error')
+      }
+    } else {
+      // Offline queue — last-write-wins single slot.
+      offlineQueueRef.current = json
+      setWsStatus('offline')
+    }
+  }
+
   // ─── Editor actions ────────────────────────────────────────────────────────
-  function onContentChange(newText) {
+  function onContentChange(nextJson) {
     if (!canEdit) {
       const msg =
         role === 'viewer'    ? 'You have viewer access — this document is read-only.' :
@@ -116,13 +210,11 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
       showToast(msg, 'warning')
       return
     }
-    setContent(newText)
+    setContent(nextJson)
+    emitTypingPing()
     clearTimeout(saveTimerRef.current)
-    setWsStatus('typing')
-    saveTimerRef.current = setTimeout(() => {
-      send({ type: 'update', content: { text: newText }, save_version: false })
-      setWsStatus('saved')
-    }, 600)
+    setWsStatus('saving')
+    saveTimerRef.current = setTimeout(() => sendUpdate(nextJson), SAVE_DEBOUNCE_MS)
   }
 
   function onCursorChange(position) {
@@ -138,7 +230,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
       showToast('Only editors and owners can save versions.', 'warning')
       return
     }
-    send({ type: 'update', content: { text: contentRef.current }, save_version: true })
+    send({ type: 'update', content: contentRef.current, save_version: true })
     setTimeout(loadVersions, 500)
   }
 
@@ -210,9 +302,9 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
         `/documents/${docId}/versions/restore/${versionNumber}`,
         { method: 'POST' },
       )
-      const newText = data.document.content?.text ?? ''
-      setContent(newText)
-      send({ type: 'update', content: { text: newText }, save_version: false })
+      const restored = toTiptap(data.document.content)
+      setContent(restored)
+      send({ type: 'update', content: restored, save_version: false })
       loadVersions()
       showToast(`Restored to version ${versionNumber}`, 'success')
     } catch (e) {
@@ -230,16 +322,12 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
       showToast('You need edit access to apply an AI suggestion.', 'warning')
       return
     }
-    const start = selection.start ?? 0
-    const end = selection.end ?? start
-    const nextContent = contentRef.current.slice(0, start) + suggestion + contentRef.current.slice(end)
-    setSelection({
-      start,
-      end: start + suggestion.length,
-      text: suggestion,
-    })
-    onContentChange(nextContent)
+    if (!editorRef.current) return
+    editorRef.current.insertAtSelection(suggestion)
+    // insertAtSelection triggers onUpdate → onContentChange → sendUpdate.
   }
+
+  const contextForAI = extractPlainText(content).slice(0, 4000)
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -254,6 +342,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
       />
       <div className="flex flex-1 overflow-hidden">
         <EditorTextarea
+          ref={editorRef}
           content={content}
           canEdit={canEdit}
           role={role}
@@ -266,13 +355,14 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
           role={role}
           isOwner={isOwner}
           activeUsers={activeUsers}
+          typingUsers={typingUsers}
           remoteCursors={remoteCursors}
           permissions={permissions}
           versions={versions}
           docId={docId}
           currentUser={currentUser}
           selectedText={selection.text}
-          context={content.slice(0, 500)}
+          context={contextForAI}
           onGrantPermission={handleGrantPermission}
           onUpdatePermission={handleUpdatePermission}
           onRevokePermission={handleRevokePermission}

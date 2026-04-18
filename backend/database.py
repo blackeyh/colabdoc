@@ -1,4 +1,5 @@
-from sqlalchemy import create_engine
+from sqlalchemy import JSON, create_engine
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from config import require_env
@@ -18,6 +19,13 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase):
     pass
+
+
+# Dialect-aware JSON column type. Postgres gets JSONB (indexable, validated);
+# SQLite falls back to plain JSON so the test fixture can stand up schemas
+# without a Postgres server. Models should import JSONType from here, not
+# from sqlalchemy.dialects.postgresql directly.
+JSONType = JSONB().with_variant(JSON(), "sqlite")
 
 
 def get_db():

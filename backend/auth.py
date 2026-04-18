@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
@@ -11,7 +11,11 @@ import models
 
 JWT_SECRET = get_env("JWT_SECRET", "fallback-secret")
 JWT_ALGORITHM = get_env("JWT_ALGORITHM", "HS256")
-JWT_EXPIRE_MINUTES = int(get_env("JWT_EXPIRE_MINUTES", "1440"))
+JWT_ACCESS_MINUTES = int(get_env("JWT_ACCESS_MINUTES", get_env("JWT_EXPIRE_MINUTES", "20")))
+JWT_REFRESH_DAYS = int(get_env("JWT_REFRESH_DAYS", "7"))
+
+TOKEN_TYPE_ACCESS = "access"
+TOKEN_TYPE_REFRESH = "refresh"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
@@ -25,17 +29,46 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_token(user_id: int) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=JWT_EXPIRE_MINUTES)
-    return jwt.encode({"sub": str(user_id), "exp": expire}, JWT_SECRET, algorithm=JWT_ALGORITHM)
+def _encode(payload: dict) -> str:
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def create_access_token(user_id: int) -> str:
+    expire = datetime.utcnow() + timedelta(minutes=JWT_ACCESS_MINUTES)
+    return _encode({"sub": str(user_id), "exp": expire, "type": TOKEN_TYPE_ACCESS})
+
+
+def create_refresh_token(user_id: int) -> str:
+    expire = datetime.utcnow() + timedelta(days=JWT_REFRESH_DAYS)
+    return _encode({"sub": str(user_id), "exp": expire, "type": TOKEN_TYPE_REFRESH})
+
+
+def issue_tokens(user_id: int) -> Tuple[str, str]:
+    return create_access_token(user_id), create_refresh_token(user_id)
+
+
+def _decode(token: str, expected_type: str) -> Optional[int]:
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except JWTError:
+        return None
+    if payload.get("type") != expected_type:
+        return None
+    sub = payload.get("sub")
+    if sub is None:
+        return None
+    try:
+        return int(sub)
+    except (TypeError, ValueError):
+        return None
 
 
 def decode_token(token: str) -> Optional[int]:
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return int(payload.get("sub"))
-    except JWTError:
-        return None
+    return _decode(token, TOKEN_TYPE_ACCESS)
+
+
+def decode_refresh_token(token: str) -> Optional[int]:
+    return _decode(token, TOKEN_TYPE_REFRESH)
 
 
 def get_current_user(

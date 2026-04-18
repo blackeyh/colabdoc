@@ -1,11 +1,45 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from typing import List, Optional
 from sqlalchemy.orm import Session
 from database import get_db
 import models
 import auth as auth_utils
 
 router = APIRouter(tags=["versions"])
+
+
+class VersionSummary(BaseModel):
+    id: int
+    version_number: int
+    created_by: int
+    created_at: datetime
+
+
+class VersionListResponse(BaseModel):
+    versions: List[VersionSummary]
+
+
+class VersionDetailResponse(BaseModel):
+    id: int
+    document_id: int
+    version_number: int
+    content: dict
+    created_by: int
+    created_at: datetime
+
+
+class RestoredDocument(BaseModel):
+    id: int
+    title: str
+    content: dict
+    updated_at: datetime
+
+
+class RestoreResponse(BaseModel):
+    message: str
+    document: RestoredDocument
 
 
 def _get_doc_or_404(doc_id: int, db: Session) -> models.Document:
@@ -24,7 +58,11 @@ def _require_access(doc: models.Document, user: models.User, db: Session, min_ro
         raise HTTPException(status_code=403, detail="Insufficient permission")
 
 
-@router.get("/documents/{doc_id}/versions")
+@router.get(
+    "/documents/{doc_id}/versions",
+    response_model=VersionListResponse,
+    summary="List version snapshots for a document, newest first",
+)
 def list_versions(
     doc_id: int,
     current_user: models.User = Depends(auth_utils.get_current_user),
@@ -51,7 +89,11 @@ def list_versions(
     }
 
 
-@router.get("/documents/{doc_id}/versions/{version_number}")
+@router.get(
+    "/documents/{doc_id}/versions/{version_number}",
+    response_model=VersionDetailResponse,
+    summary="Fetch a specific version snapshot",
+)
 def get_version(
     doc_id: int,
     version_number: int,
@@ -77,7 +119,11 @@ def get_version(
     }
 
 
-@router.post("/documents/{doc_id}/versions/restore/{version_number}")
+@router.post(
+    "/documents/{doc_id}/versions/restore/{version_number}",
+    response_model=RestoreResponse,
+    summary="Restore a document to an earlier version (editor or owner)",
+)
 def restore_version(
     doc_id: int,
     version_number: int,

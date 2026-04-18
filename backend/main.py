@@ -1,10 +1,12 @@
 import json
+import logging
 import os
 from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from database import SessionLocal, engine
@@ -13,8 +15,34 @@ from websocket_manager import manager
 import models
 import auth as auth_utils
 
+logger = logging.getLogger(__name__)
+
 # Create any new tables (e.g. ai_interactions) without touching existing ones
 models.Base.metadata.create_all(bind=engine)
+
+
+def _ensure_ai_interaction_columns():
+    """Add new AIInteraction columns on existing Postgres deployments.
+
+    SQLAlchemy's create_all() does not ALTER existing tables. This is a small,
+    idempotent migration that runs once at startup. It no-ops on SQLite because
+    the test fixture creates tables from scratch.
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    statements = [
+        "ALTER TABLE ai_interactions ADD COLUMN IF NOT EXISTS user_action VARCHAR",
+        "ALTER TABLE ai_interactions ADD COLUMN IF NOT EXISTS final_text TEXT",
+    ]
+    try:
+        with engine.begin() as conn:
+            for stmt in statements:
+                conn.execute(text(stmt))
+    except Exception:
+        logger.exception("Failed to apply ai_interactions column migration")
+
+
+_ensure_ai_interaction_columns()
 
 app = FastAPI(title="ColabDoc API", version="1.0.0")
 
@@ -119,6 +147,13 @@ async def document_ws(
                         "type": "cursor",
                         "user": user_info,
                         "position": msg.get("position"),
+                    }, exclude=websocket)
+
+                elif msg.get("type") == "typing":
+                    # Broadcast a lightweight "X is typing" ping.
+                    await manager.broadcast(doc_id, {
+                        "type": "typing",
+                        "user": user_info,
                     }, exclude=websocket)
 
         except WebSocketDisconnect:

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'
 
 const STATUS = {
-  connecting:   { label: 'Connecting…',    cls: 'text-yellow-500' },
+  connecting:   { label: 'Connecting…',     cls: 'text-yellow-500' },
   connected:    { label: 'Connected',       cls: 'text-green-600' },
-  reconnecting: { label: 'Reconnecting…',  cls: 'text-orange-500' },
-  disconnected: { label: 'Disconnected',   cls: 'text-red-500' },
-  error:        { label: 'Connection error', cls: 'text-red-500' },
+  reconnecting: { label: 'Reconnecting…',   cls: 'text-orange-500' },
+  disconnected: { label: 'Disconnected',    cls: 'text-red-500' },
+  offline:      { label: 'Offline — edits queued', cls: 'text-gray-500' },
+  error:        { label: 'Save failed',     cls: 'text-red-500' },
   'no-permission': { label: 'No permission', cls: 'text-red-500' },
-  typing:       { label: 'Typing…',         cls: 'text-gray-500' },
+  saving:       { label: 'Saving…',         cls: 'text-amber-500' },
   saved:        { label: 'Saved',           cls: 'text-green-600' },
 }
 

@@ -1,7 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy.orm import Session
 from database import get_db
 import models
@@ -17,6 +17,38 @@ class CreateDocumentRequest(BaseModel):
 class UpdateDocumentRequest(BaseModel):
     title: Optional[str] = None
     content: Optional[dict] = None
+
+
+class DocumentSummary(BaseModel):
+    id: int
+    title: str
+    owner_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class DocumentListResponse(BaseModel):
+    documents: List[DocumentSummary]
+
+
+class DocumentResponse(BaseModel):
+    id: int
+    title: str
+    content: dict
+    owner_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class DocumentUpdateResponse(BaseModel):
+    id: int
+    title: str
+    content: dict
+    updated_at: datetime
+
+
+class DeleteResponse(BaseModel):
+    message: str
 
 
 def _get_doc_or_404(doc_id: int, db: Session) -> models.Document:
@@ -36,7 +68,11 @@ def _require_access(doc: models.Document, user: models.User, db: Session, min_ro
     return role
 
 
-@router.get("")
+@router.get(
+    "",
+    response_model=DocumentListResponse,
+    summary="List documents owned by or shared with the current user",
+)
 def list_documents(
     current_user: models.User = Depends(auth_utils.get_current_user),
     db: Session = Depends(get_db),
@@ -67,7 +103,12 @@ def list_documents(
     }
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=DocumentResponse,
+    summary="Create a new document owned by the current user",
+)
 def create_document(
     body: CreateDocumentRequest,
     current_user: models.User = Depends(auth_utils.get_current_user),
@@ -96,7 +137,11 @@ def create_document(
     }
 
 
-@router.get("/{doc_id}")
+@router.get(
+    "/{doc_id}",
+    response_model=DocumentResponse,
+    summary="Fetch a single document the user can access",
+)
 def get_document(
     doc_id: int,
     current_user: models.User = Depends(auth_utils.get_current_user),
@@ -114,7 +159,11 @@ def get_document(
     }
 
 
-@router.put("/{doc_id}")
+@router.put(
+    "/{doc_id}",
+    response_model=DocumentUpdateResponse,
+    summary="Update a document's title and/or content (editor or owner)",
+)
 def update_document(
     doc_id: int,
     body: UpdateDocumentRequest,
@@ -133,7 +182,11 @@ def update_document(
     return {"id": doc.id, "title": doc.title, "content": doc.content, "updated_at": doc.updated_at}
 
 
-@router.delete("/{doc_id}")
+@router.delete(
+    "/{doc_id}",
+    response_model=DeleteResponse,
+    summary="Delete a document (owner only)",
+)
 def delete_document(
     doc_id: int,
     current_user: models.User = Depends(auth_utils.get_current_user),

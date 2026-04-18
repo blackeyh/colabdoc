@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from typing import List
 from sqlalchemy.orm import Session
 from database import get_db
 import models
@@ -17,6 +18,26 @@ class UpdatePermissionRequest(BaseModel):
     role: str
 
 
+class PermissionEntry(BaseModel):
+    user_id: int
+    user_name: str
+    role: str
+
+
+class PermissionListResponse(BaseModel):
+    permissions: List[PermissionEntry]
+
+
+class PermissionResponse(BaseModel):
+    user_id: int
+    document_id: int
+    role: str
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
 VALID_ROLES = {"editor", "commenter", "viewer"}
 
 
@@ -27,7 +48,11 @@ def _get_doc_or_404(doc_id: int, db: Session) -> models.Document:
     return doc
 
 
-@router.get("/documents/{doc_id}/permissions")
+@router.get(
+    "/documents/{doc_id}/permissions",
+    response_model=PermissionListResponse,
+    summary="List users with explicit permissions on a document",
+)
 def list_permissions(
     doc_id: int,
     current_user: models.User = Depends(auth_utils.get_current_user),
@@ -45,7 +70,12 @@ def list_permissions(
     return {"permissions": result}
 
 
-@router.post("/documents/{doc_id}/permissions", status_code=201)
+@router.post(
+    "/documents/{doc_id}/permissions",
+    status_code=201,
+    response_model=PermissionResponse,
+    summary="Grant a user access to a document (owner only)",
+)
 def grant_permission(
     doc_id: int,
     body: GrantPermissionRequest,
@@ -75,7 +105,11 @@ def grant_permission(
     return {"user_id": perm.user_id, "document_id": perm.document_id, "role": perm.role}
 
 
-@router.put("/documents/{doc_id}/permissions/{user_id}")
+@router.put(
+    "/documents/{doc_id}/permissions/{user_id}",
+    response_model=PermissionResponse,
+    summary="Change a user's role on a document (owner only)",
+)
 def update_permission(
     doc_id: int,
     user_id: int,
@@ -100,7 +134,11 @@ def update_permission(
     return {"user_id": perm.user_id, "document_id": perm.document_id, "role": perm.role}
 
 
-@router.delete("/documents/{doc_id}/permissions/{user_id}")
+@router.delete(
+    "/documents/{doc_id}/permissions/{user_id}",
+    response_model=MessageResponse,
+    summary="Revoke a user's access to a document (owner only)",
+)
 def revoke_permission(
     doc_id: int,
     user_id: int,

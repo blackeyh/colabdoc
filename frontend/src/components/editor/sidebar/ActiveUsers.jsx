@@ -14,7 +14,7 @@ function getColor(userId) {
   return colorCache[userId]
 }
 
-export default function ActiveUsers({ activeUsers, remoteCursors }) {
+export default function ActiveUsers({ activeUsers, typingUsers = {}, remoteCursors = {} }) {
   return (
     <div>
       <h4 className="text-xs uppercase tracking-wide text-gray-400 font-semibold mb-2">
@@ -24,8 +24,8 @@ export default function ActiveUsers({ activeUsers, remoteCursors }) {
         <p className="text-xs text-gray-400">Just you</p>
       ) : (
         activeUsers.map(u => {
-          const cursor = remoteCursors[u.id]
           const color = getColor(u.id)
+          const isTyping = !!typingUsers[u.id]
           return (
             <div key={u.id} className="flex items-center gap-2 mb-1.5">
               <span
@@ -36,13 +36,13 @@ export default function ActiveUsers({ activeUsers, remoteCursors }) {
               <span className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">
                 {u.role}
               </span>
-              {cursor != null && (
+              {isTyping && (
                 <span
-                  className="text-xs font-mono"
+                  className="text-xs italic"
                   style={{ color }}
-                  title={`Cursor at character ${cursor.start}`}
+                  title="Typing…"
                 >
-                  :{cursor.start}
+                  typing…
                 </span>
               )}
             </div>

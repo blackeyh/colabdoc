@@ -2,8 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy import Integer, String, Text, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import JSONB
-from database import Base
+from database import Base, JSONType
 
 
 class User(Base):
@@ -25,7 +24,7 @@ class Document(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    content: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    content: Mapped[dict] = mapped_column(JSONType, nullable=False, default=dict)
     owner_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
@@ -55,7 +54,7 @@ class Version(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     document_id: Mapped[int] = mapped_column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
-    content: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    content: Mapped[dict] = mapped_column(JSONType, nullable=False)
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
@@ -74,6 +73,10 @@ class AIInteraction(Base):
     action: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     suggestion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # User decision on the suggestion: pending | accepted | rejected | edited
+    user_action: Mapped[Optional[str]] = mapped_column(String, nullable=True, default="pending")
+    # When the user edits the suggestion before accepting, we store the final text here.
+    final_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False,
                                                   default=lambda: datetime.now(timezone.utc))
 

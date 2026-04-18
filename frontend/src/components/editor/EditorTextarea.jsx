@@ -1,6 +1,8 @@
-import React, { useRef, useCallback, useEffect } from 'react'
+import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { EMPTY_TIPTAP_DOC } from '../../lib/contentCompat'
 
-// Returns a stable color for each collaborator cursor
 const CURSOR_COLORS = [
   '#ef4444', '#f97316', '#eab308', '#22c55e',
   '#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6',
@@ -21,39 +23,104 @@ function readOnlyMessage(role) {
   return null
 }
 
-export default function EditorTextarea({
-  content,
-  canEdit,
-  role,
-  remoteCursors,
-  onChange,
-  onCursorChange,
-  onSelectionChange,
-}) {
-  const taRef = useRef(null)
+function Toolbar({ editor, disabled }) {
+  if (!editor) return null
+  const btn = (active, onClick, label, key) => (
+    <button
+      key={key}
+      type="button"
+      onMouseDown={e => e.preventDefault()}
+      onClick={onClick}
+      disabled={disabled}
+      className={`px-2 py-1 text-sm rounded border transition ${
+        active
+          ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
+          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+      } disabled:opacity-50 disabled:cursor-not-allowed`}
+    >
+      {label}
+    </button>
+  )
 
-  const handleChange = useCallback(e => onChange(e.target.value), [onChange])
+  return (
+    <div className="flex flex-wrap gap-1 border-b border-gray-200 bg-white px-4 py-2 flex-shrink-0">
+      {btn(editor.isActive('bold'),   () => editor.chain().focus().toggleBold().run(),   <b>B</b>,    'b')}
+      {btn(editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run(), <i>I</i>,   'i')}
+      {btn(editor.isActive('heading', { level: 1 }), () => editor.chain().focus().toggleHeading({ level: 1 }).run(), 'H1', 'h1')}
+      {btn(editor.isActive('heading', { level: 2 }), () => editor.chain().focus().toggleHeading({ level: 2 }).run(), 'H2', 'h2')}
+      {btn(editor.isActive('bulletList'),  () => editor.chain().focus().toggleBulletList().run(),  '• List',  'ul')}
+      {btn(editor.isActive('orderedList'), () => editor.chain().focus().toggleOrderedList().run(), '1. List', 'ol')}
+      {btn(editor.isActive('codeBlock'),   () => editor.chain().focus().toggleCodeBlock().run(),   '</>',     'code')}
+      {btn(false, () => editor.chain().focus().undo().run(), '↶ Undo', 'undo')}
+      {btn(false, () => editor.chain().focus().redo().run(), '↷ Redo', 'redo')}
+    </div>
+  )
+}
 
-  const emitCursor = useCallback(() => {
-    const ta = taRef.current
-    if (!ta) return
-    onCursorChange({ start: ta.selectionStart, end: ta.selectionEnd })
-    onSelectionChange?.({
-      start: ta.selectionStart,
-      end: ta.selectionEnd,
-      text: ta.value.substring(ta.selectionStart, ta.selectionEnd),
-    })
-  }, [onCursorChange, onSelectionChange])
+const EditorTextarea = forwardRef(function EditorTextarea(
+  {
+    content,
+    canEdit,
+    role,
+    remoteCursors,
+    onChange,
+    onCursorChange,
+    onSelectionChange,
+  },
+  ref,
+) {
+  const skipNextUpdateRef = useRef(false)
+  const lastLocalJsonRef = useRef(null)
+
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: content || EMPTY_TIPTAP_DOC,
+    editable: !!canEdit,
+    onUpdate: ({ editor: ed }) => {
+      if (skipNextUpdateRef.current) {
+        skipNextUpdateRef.current = false
+        return
+      }
+      const json = ed.getJSON()
+      lastLocalJsonRef.current = json
+      onChange?.(json)
+    },
+    onSelectionUpdate: ({ editor: ed }) => {
+      const { from, to } = ed.state.selection
+      const text = ed.state.doc.textBetween(from, to, '\n')
+      onCursorChange?.({ start: from, end: to })
+      onSelectionChange?.({ start: from, end: to, text })
+    },
+  })
 
   useEffect(() => {
-    const ta = taRef.current
-    if (!ta) return
-    onSelectionChange?.({
-      start: ta.selectionStart,
-      end: ta.selectionEnd,
-      text: ta.value.substring(ta.selectionStart, ta.selectionEnd),
-    })
-  }, [content, onSelectionChange])
+    if (!editor) return
+    editor.setEditable(!!canEdit)
+  }, [editor, canEdit])
+
+  // Apply external content changes (WS updates, version restores) without
+  // recursing through onUpdate.
+  useEffect(() => {
+    if (!editor || !content) return
+    const current = editor.getJSON()
+    if (JSON.stringify(current) === JSON.stringify(content)) return
+    skipNextUpdateRef.current = true
+    editor.commands.setContent(content, false)
+  }, [editor, content])
+
+  useImperativeHandle(ref, () => ({
+    getEditor: () => editor,
+    insertAtSelection: (text) => {
+      if (!editor || typeof text !== 'string') return
+      const { from, to } = editor.state.selection
+      editor.chain().focus().insertContentAt({ from, to }, text).run()
+    },
+    getSelectedText: () => {
+      if (!editor) return ''
+      const { from, to } = editor.state.selection
+      return editor.state.doc.textBetween(from, to, '\n')
+    },
+  }), [editor])
 
   const msg = !canEdit ? readOnlyMessage(role) : null
 
@@ -65,33 +132,31 @@ export default function EditorTextarea({
         </div>
       )}
 
-      <textarea
-        ref={taRef}
-        value={content}
-        onChange={handleChange}
-        onSelect={emitCursor}
-        onClick={emitCursor}
-        onKeyUp={emitCursor}
-        readOnly={!canEdit}
-        placeholder="Start writing…"
-        className={`flex-1 resize-none border-none outline-none p-8 text-base leading-relaxed font-sans ${canEdit ? 'bg-gray-50' : 'bg-gray-100 cursor-default'}`}
-      />
+      <Toolbar editor={editor} disabled={!canEdit} />
 
-      {/* Collaborator cursor badges */}
-      {Object.keys(remoteCursors).length > 0 && (
+      <div className={`flex-1 overflow-auto ${canEdit ? 'bg-white' : 'bg-gray-100'}`}>
+        <EditorContent
+          editor={editor}
+          className="prose max-w-3xl mx-auto px-8 py-6 focus:outline-none"
+        />
+      </div>
+
+      {remoteCursors && Object.keys(remoteCursors).length > 0 && (
         <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5 pointer-events-none">
           {Object.entries(remoteCursors).map(([uid, cursor]) => (
             <span
               key={uid}
               className="text-xs px-2 py-0.5 rounded-full text-white shadow-sm"
               style={{ backgroundColor: cursorColor(uid) }}
-              title={`${cursor.name} — char ${cursor.start}`}
+              title={`${cursor.name}`}
             >
-              {cursor.name} :{cursor.start}
+              {cursor.name}
             </span>
           ))}
         </div>
       )}
     </div>
   )
-}
+})
+
+export default EditorTextarea

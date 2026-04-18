@@ -4,6 +4,7 @@ import RegisterPage from './components/auth/RegisterPage'
 import Dashboard from './components/dashboard/Dashboard'
 import EditorPage from './components/editor/EditorPage'
 import Toast from './components/common/Toast'
+import { clearTokens, getToken } from './api'
 
 export default function App() {
   const [page, setPage] = useState('login')
@@ -20,7 +21,7 @@ export default function App() {
   // Session-expiry handler — clears auth and redirects to login
   useEffect(() => {
     const handle = () => {
-      localStorage.removeItem('token')
+      clearTokens()
       localStorage.removeItem('user')
       setCurrentUser(null)
       setCurrentDoc(null)
@@ -33,7 +34,7 @@ export default function App() {
 
   // Restore session from localStorage on mount
   useEffect(() => {
-    const token = localStorage.getItem('token')
+    const token = getToken()
     const user = JSON.parse(localStorage.getItem('user') || 'null')
     if (token && user) {
       setCurrentUser(user)
@@ -47,7 +48,7 @@ export default function App() {
   }
 
   function handleLogout() {
-    localStorage.removeItem('token')
+    clearTokens()
     localStorage.removeItem('user')
     setCurrentUser(null)
     setCurrentDoc(null)

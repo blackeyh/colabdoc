@@ -20,7 +20,39 @@ class LoginRequest(BaseModel):
     password: str
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED)
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+
+
+class RegisterResponse(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    created_at: datetime
+
+
+class TokenPair(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class LoginResponse(TokenPair):
+    user: UserResponse
+
+
+@router.post(
+    "/register",
+    status_code=status.HTTP_201_CREATED,
+    response_model=RegisterResponse,
+    summary="Register a new user",
+)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
     if not body.name or not body.email or not body.password:
         raise HTTPException(status_code=400, detail="Missing required fields")
@@ -36,27 +68,51 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {"id": user.id, "name": user.name, "email": user.email, "created_at": user.created_at}
+    return RegisterResponse(id=user.id, name=user.name, email=user.email, created_at=user.created_at)
 
 
-@router.post("/login")
+@router.post(
+    "/login",
+    response_model=LoginResponse,
+    summary="Log in and receive access + refresh tokens",
+)
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     if not body.email or not body.password:
         raise HTTPException(status_code=400, detail="Missing fields")
     user = db.query(models.User).filter(models.User.email == body.email).first()
     if not user or not auth_utils.verify_password(body.password, user.password):
         raise HTTPException(status_code=401, detail="Wrong email or password")
-    token = auth_utils.create_token(user.id)
-    return {"token": token, "user": {"id": user.id, "name": user.name, "email": user.email}}
+    access, refresh = auth_utils.issue_tokens(user.id)
+    return LoginResponse(
+        access_token=access,
+        refresh_token=refresh,
+        user=UserResponse(id=user.id, name=user.name, email=user.email),
+    )
 
 
-@router.post("/logout")
+@router.post(
+    "/refresh",
+    response_model=TokenPair,
+    summary="Exchange a refresh token for a new access + refresh pair",
+)
+def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
+    user_id = auth_utils.decode_refresh_token(body.refresh_token)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    access, refresh_token = auth_utils.issue_tokens(user.id)
+    return TokenPair(access_token=access, refresh_token=refresh_token)
+
+
+@router.post("/logout", summary="Stateless logout — client discards tokens")
 def logout(current_user: models.User = Depends(auth_utils.get_current_user)):
-    # JWT is stateless; client just discards the token
+    # JWT is stateless; client just discards the tokens
     return {"message": "Logged out successfully"}
 
 
-@router.get("/users/search")
+@router.get("/users/search", summary="Search users by name or email")
 def search_users(
     q: str,
     current_user: models.User = Depends(auth_utils.get_current_user),

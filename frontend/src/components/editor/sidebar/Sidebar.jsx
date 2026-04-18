@@ -1,11 +1,12 @@
 import React from 'react'
 import AIPanel from './AIPanel'
+import AIHistoryPanel from './AIHistoryPanel'
 import ActiveUsers from './ActiveUsers'
 import PermissionsPanel from './PermissionsPanel'
 import VersionsPanel from './VersionsPanel'
 
 export default function Sidebar({
-  role, isOwner, activeUsers, remoteCursors,
+  role, isOwner, activeUsers, typingUsers, remoteCursors,
   permissions, versions, docId, currentUser,
   selectedText, context,
   onGrantPermission, onUpdatePermission, onRevokePermission,
@@ -24,7 +25,13 @@ export default function Sidebar({
         showToast={showToast}
       />
       <hr className="border-gray-100" />
-      <ActiveUsers activeUsers={activeUsers} remoteCursors={remoteCursors} />
+      <AIHistoryPanel docId={docId} />
+      <hr className="border-gray-100" />
+      <ActiveUsers
+        activeUsers={activeUsers}
+        typingUsers={typingUsers}
+        remoteCursors={remoteCursors}
+      />
       <hr className="border-gray-100" />
       <PermissionsPanel
         isOwner={isOwner}
