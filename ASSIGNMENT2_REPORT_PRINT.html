@@ -10,7 +10,7 @@
         --ink-soft: #385671;
         --muted: #6d8195;
         --line: #d6e2ec;
-        --paper: #f4f7fb;
+        --paper: #f6f8fb;
         --card: #ffffff;
         --navy: #16324d;
         --teal: #1c8f8a;
@@ -18,7 +18,7 @@
         --sage: #eaf5f2;
         --rose: #fce9ea;
         --sky: #eef6fb;
-        --shadow: 0 14px 36px rgba(17, 38, 58, 0.11);
+        --shadow: none;
       }
 
       * {
@@ -66,12 +66,10 @@
       }
 
       .cover {
-        background:
-          radial-gradient(circle at top right, rgba(245, 183, 0, 0.35), transparent 30%),
-          radial-gradient(circle at left bottom, rgba(28, 143, 138, 0.28), transparent 34%),
-          linear-gradient(150deg, #17324d 0%, #24557a 60%, #1f6c7f 100%);
-        color: #f7fbff;
+        background: #ffffff;
+        color: var(--ink);
         padding: 54px 58px 44px;
+        border-top: 10px solid var(--navy);
       }
 
       .cover::after {
@@ -79,14 +77,15 @@
         position: absolute;
         inset: 16px;
         border-radius: 22px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
+        border: 1px solid var(--line);
       }
 
       .eyebrow {
         display: inline-block;
         padding: 8px 14px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.12);
+        background: var(--sky);
+        color: var(--navy);
         font-size: 11px;
         font-weight: 800;
         text-transform: uppercase;
@@ -105,7 +104,7 @@
         max-width: 760px;
         font-size: 19px;
         line-height: 1.55;
-        color: rgba(247, 251, 255, 0.84);
+        color: var(--ink-soft);
       }
 
       .meta-grid,
@@ -143,8 +142,8 @@
 
       .meta-card {
         padding: 16px 16px 14px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: #fff;
+        border: 1px solid var(--line);
       }
 
       .meta-card .label {
@@ -169,35 +168,12 @@
         margin-top: 24px;
       }
 
-      .hero-panel,
-      .highlight {
-        border-radius: 24px;
-        padding: 20px 22px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.14);
-      }
-
       .hero-panel h3,
-      .highlight h3,
       .card h3,
       .table-card h3 {
         margin: 0 0 12px;
         font-size: 17px;
         letter-spacing: 0.03em;
-      }
-
-      .pill-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .pill {
-        padding: 7px 10px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.12);
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        font-size: 12px;
       }
 
       .cover ul,
@@ -217,7 +193,7 @@
         gap: 18px;
         margin-top: 22px;
         font-size: 13px;
-        color: rgba(247, 251, 255, 0.76);
+        color: var(--muted);
       }
 
       .section {
@@ -265,7 +241,7 @@
         border: 1px solid var(--line);
         border-radius: 20px;
         padding: 14px 14px 12px;
-        background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+        background: #ffffff;
       }
 
       .stat strong {
@@ -346,7 +322,7 @@
         border-radius: 24px;
         padding: 18px;
         border: 1px solid var(--line);
-        background: linear-gradient(180deg, #f9fbfd 0%, #f1f7fb 100%);
+        background: #fafcfe;
       }
 
       .diagram-grid {
@@ -383,7 +359,7 @@
       .fact {
         border: 1px solid var(--line);
         padding: 14px;
-        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        background: #ffffff;
       }
 
       .fact strong {
@@ -395,8 +371,8 @@
       .note {
         border-radius: 22px;
         padding: 16px 18px;
-        background: linear-gradient(135deg, rgba(28, 143, 138, 0.09), rgba(22, 50, 79, 0.04));
-        border: 1px solid rgba(28, 143, 138, 0.2);
+        background: #f8fbfc;
+        border: 1px solid var(--line);
       }
 
       .note strong {
@@ -415,7 +391,7 @@
         gap: 12px;
         padding: 12px 14px;
         border: 1px solid var(--line);
-        background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+        background: #ffffff;
       }
 
       .timeline-step .num {
@@ -487,26 +463,26 @@
       }
 
       .closing {
-        background: linear-gradient(145deg, #16324d 0%, #285771 52%, #1f6f7f 100%);
-        color: #f7fbff;
+        background: #ffffff;
+        color: var(--ink);
       }
 
       .closing h2,
       .closing p,
       .closing li {
-        color: #f7fbff;
+        color: var(--ink);
       }
 
       .closing .section-head p,
       .closing .caption {
-        color: rgba(247, 251, 255, 0.76);
+        color: var(--muted);
       }
 
       .closing-card {
         border-radius: 24px;
         padding: 18px 18px 16px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: #ffffff;
+        border: 1px solid var(--line);
       }
 
       .page-number {
@@ -518,10 +494,6 @@
         letter-spacing: 0.14em;
         text-transform: uppercase;
         font-weight: 800;
-      }
-
-      .closing .page-number {
-        color: rgba(247, 251, 255, 0.45);
       }
 
       @media print {
@@ -546,7 +518,7 @@
         <p class="subtitle">
           A collaborative rich-text document editor with authenticated multi-user
           access, Yjs-backed realtime editing, streamed AI assistance, version
-          history, export, and a reviewer-friendly local setup.
+          history, export, and a one-command local setup.
         </p>
 
         <div class="meta-grid">
@@ -555,46 +527,30 @@
             <div class="value">blackeyh/colabdoc</div>
           </div>
           <div class="meta-card">
-            <div class="label">Final Branch</div>
+            <div class="label">Submission Target</div>
             <div class="value">main</div>
           </div>
           <div class="meta-card">
-            <div class="label">Backend Tests</div>
-            <div class="value">66 Passing</div>
+            <div class="label">Working Branch</div>
+            <div class="value">assignment-2</div>
           </div>
           <div class="meta-card">
-            <div class="label">Frontend Tests</div>
-            <div class="value">20 Passing</div>
-          </div>
-        </div>
-
-        <div class="hero">
-          <div class="hero-panel">
-            <h3>What This Report Covers</h3>
-            <ul>
-              <li>Requirement-by-requirement coverage for the final Assignment 2 submission.</li>
-              <li>Actual backend, frontend, realtime, AI, and persistence design.</li>
-              <li>Alignment between the delivered repo and the earlier Assignment 1 design.</li>
-              <li>Testing evidence, live-demo strategy, and remaining trade-offs.</li>
-            </ul>
-          </div>
-          <div class="highlight">
-            <h3>Core Submission Highlights</h3>
-            <div class="pill-row">
-              <span class="pill">JWT Auth + Refresh</span>
-              <span class="pill">Rich-Text Editing</span>
-              <span class="pill">Role-Based Sharing</span>
-              <span class="pill">Yjs Collaboration</span>
-              <span class="pill">Streamed AI</span>
-              <span class="pill">Version Restore</span>
-              <span class="pill">HTML/TXT Export</span>
-              <span class="pill">Automated Tests</span>
-            </div>
+            <div class="label">API Docs</div>
+            <div class="value">/docs</div>
           </div>
         </div>
 
         <div class="hero" style="grid-template-columns: 1fr 1fr; margin-top: 16px;">
-          <div class="hero-panel">
+          <div class="card">
+            <h3>Report Scope</h3>
+            <ul>
+              <li>Requirement-to-evidence mapping for the final Assignment 2 submission.</li>
+              <li>Backend, frontend, realtime, AI, and persistence architecture.</li>
+              <li>Alignment between the delivered repo and the Assignment 1 design.</li>
+              <li>Testing evidence, setup details, and known trade-offs.</li>
+            </ul>
+          </div>
+          <div class="card">
             <h3>Final Stack</h3>
             <ul>
               <li>Frontend: React, Vite, Tiptap, Yjs</li>
@@ -603,7 +559,7 @@
               <li>AI: OpenAI-compatible provider abstraction with null fallback</li>
             </ul>
           </div>
-          <div class="hero-panel">
+          <div class="card">
             <h3>Companion Documentation</h3>
             <ul>
               <li><strong>README.md</strong> for setup and protocol details</li>
@@ -615,7 +571,7 @@
         </div>
 
         <div class="cover-footer">
-          <div>This PDF is intentionally detailed so a grader can inspect the final delivered system without relying on assumptions from the earlier design report.</div>
+          <div>This PDF is intended to be read as a submission report and evidence summary for the shipped repo snapshot.</div>
           <div>Prepared for the final Assignment 2 submission.</div>
         </div>
       </section>
@@ -633,68 +589,77 @@
           </p>
         </div>
 
-        <div class="stats">
-          <div class="stat"><strong>4</strong><span>User Roles</span></div>
-          <div class="stat"><strong>2</strong><span>Export Formats</span></div>
-          <div class="stat"><strong>1</strong><span>Run Script</span></div>
-          <div class="stat"><strong>1</strong><span>Detailed Report</span></div>
-        </div>
-
         <div class="table-card">
-          <h3>Assignment Coverage Matrix</h3>
+          <h3>Requirement and Evidence Matrix</h3>
           <table>
             <thead>
               <tr>
                 <th>Area</th>
-                <th>Final Implementation</th>
-                <th>Primary Evidence</th>
+                <th>Implemented Behavior</th>
+                <th>Evidence</th>
+                <th>Note / Limitation</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td>Authentication</td>
-                <td>Registration, login, JWT access tokens, refresh token exchange, protected route gating.</td>
+                <td>Registration, login, JWT access tokens, refresh token exchange.</td>
                 <td>`backend/routers/auth.py`, `backend/auth.py`, `tests/test_auth.py`</td>
+                <td>App-managed JWT auth rather than an external provider.</td>
               </tr>
               <tr>
                 <td>Document CRUD</td>
                 <td>Create, rename, edit, load, list, delete, and export documents.</td>
                 <td>`backend/routers/documents.py`, dashboard and editor components, `tests/test_documents.py`</td>
+                <td>Canonical content is persisted as structured JSON.</td>
               </tr>
               <tr>
                 <td>Rich Text</td>
                 <td>Tiptap editor with headings, lists, code blocks, inline formatting, undo/redo.</td>
                 <td>`EditorTextarea.jsx`, `EditorBar.jsx`</td>
+                <td>Legacy plain-text documents are normalized via `contentCompat.js`.</td>
               </tr>
               <tr>
                 <td>Sharing / Roles</td>
                 <td>`owner`, `editor`, `commenter`, `viewer` with backend ACL enforcement and UI restrictions.</td>
                 <td>`permissions.py`, `documents.py`, `tests/test_permissions.py`</td>
+                <td>The brief required at least three roles; the repo keeps four.</td>
               </tr>
               <tr>
                 <td>Realtime Collaboration</td>
                 <td>Authenticated WebSockets, Yjs incremental updates, presence, remote carets, selections, typing.</td>
                 <td>`main.py`, `websocket_manager.py`, `collaboration.js`, `tests/test_websocket.py`</td>
+                <td>Latest room snapshot is cached in memory for reconnect and late join.</td>
               </tr>
               <tr>
                 <td>AI Assistant</td>
                 <td>Streamed generation, cancel, compare, accept, accept edited, reject, document-level history.</td>
                 <td>`routers/ai.py`, `providers.py`, `AIPanel.jsx`, `test_ai.py`, `AIPanel.test.jsx`</td>
+                <td>Default local provider is deterministic unless a real provider is configured.</td>
               </tr>
               <tr>
                 <td>Version History</td>
                 <td>Save versions, list versions, restore previous content, synchronize restore to collaborators.</td>
                 <td>`versions.py`, `VersionsPanel.jsx`, `tests/test_versions.py`</td>
+                <td>Restore is broadcast back into the live collaboration room.</td>
               </tr>
               <tr>
                 <td>Export</td>
                 <td>Portable HTML and plain-text export from the persisted canonical document state.</td>
                 <td>`exporters.py`, export endpoint, `EditorBar.jsx`</td>
+                <td>Targets readable portable formats rather than office binaries.</td>
               </tr>
               <tr>
-                <td>Setup / Docs / Tests</td>
-                <td>`./start.sh`, runnable `.env.example`, detailed docs, backend and frontend tests, rehearsal test.</td>
+                <td>API Docs</td>
+                <td>Interactive FastAPI docs and OpenAPI schema at `/docs`.</td>
+                <td>`README.md`, router `summary=` and `response_model=` annotations in auth, documents, permissions, versions, and AI routers.</td>
+                <td>WebSocket collaboration is documented in the README rather than OpenAPI.</td>
+              </tr>
+              <tr>
+                <td>Setup / Tests</td>
+                <td>`./start.sh`, runnable `.env.example`, backend and frontend tests, rehearsal test.</td>
                 <td>`start.sh`, root docs, `tests/test_submission_rehearsal.py`</td>
+                <td>`npm install` currently runs on each startup.</td>
               </tr>
             </tbody>
           </table>
@@ -702,25 +667,25 @@
 
         <div class="grid-2" style="margin-top: 14px;">
           <div class="card">
-            <h3>Design Direction</h3>
+            <h3>How To Read This Report</h3>
             <p class="caption">
-              The final repo was optimized for rubric coverage, demo reliability,
-              and documentation consistency.
+              This document is organized so a grader can move from a requirement
+              to the implementation, then to the supporting evidence.
             </p>
             <ul>
-              <li>Keep the system simple enough to run locally for grading.</li>
-              <li>Implement the visible behaviors the rubric actually scores.</li>
-              <li>Document all intentional differences from the broader Assignment 1 architecture.</li>
-              <li>Back the grade-critical flows with executable tests rather than only prose claims.</li>
+              <li>Section 1 is the requirement-to-evidence matrix.</li>
+              <li>Sections 2 through 6 explain the shipped architecture and feature paths.</li>
+              <li>Section 7 covers setup, API docs, and testing evidence.</li>
+              <li>Sections 8 and 9 cover Assignment 1 alignment and known trade-offs.</li>
             </ul>
           </div>
           <div class="card">
-            <h3>Why This Matters</h3>
+            <h3>Documentation Scope</h3>
             <ul>
-              <li>The Assignment 1 feedback specifically criticized report-to-implementation mismatch.</li>
-              <li>This submission therefore makes the final runtime architecture explicit.</li>
-              <li>The startup path described in the docs is the path that actually works.</li>
-              <li>The AI and collaboration behavior described in the docs is the behavior implemented in code and covered by tests.</li>
+              <li>The report describes the shipped PoC rather than a larger intended architecture.</li>
+              <li>Intentional deviations are documented explicitly instead of implied.</li>
+              <li>Trade-offs are kept in the report so scope reduction is visible.</li>
+              <li>Evidence points to code, tests, and supporting docs in the repository.</li>
             </ul>
           </div>
         </div>
@@ -1168,7 +1133,7 @@
               </tr>
               <tr>
                 <td>Undoability</td>
-                <td>Accepted AI insertions remain part of normal editor history and are covered by a frontend proof test.</td>
+                <td>Accepted AI insertions remain part of normal editor history and are covered by `frontend/tests/EditorTextarea.test.jsx`.</td>
               </tr>
               <tr>
                 <td>Traceability</td>
@@ -1187,8 +1152,8 @@
             <h2>Setup, Testing, and Verification</h2>
           </div>
           <p>
-            The final repo was adjusted so a reviewer can run it locally with
-            less friction and inspect rubric-critical behavior with automated evidence.
+            This section documents the local start path, API documentation
+            surface, and the test artifacts that support the main report claims.
           </p>
         </div>
 
@@ -1201,27 +1166,21 @@
               <li>Open `http://127.0.0.1:8000`.</li>
             </ol>
             <p class="caption">
-              `start.sh` creates `.venv`, installs dependencies, creates `.env`
-              from `.env.example` when missing, generates a local JWT secret, builds
-              the frontend, and starts the backend.
+              `start.sh` creates `.venv`, installs backend requirements when
+              needed, runs `npm install`, creates `.env` from `.env.example`
+              when missing, generates a local JWT secret, builds the frontend,
+              and starts the backend.
             </p>
           </div>
           <div class="card">
-            <h3>Configuration Philosophy</h3>
+            <h3>API Documentation</h3>
             <ul>
-              <li>Local SQLite default for zero-config grading.</li>
-              <li>Runnable `.env.example` instead of a placeholder-only template.</li>
-              <li>Null AI provider enabled by default so the app remains demoable offline.</li>
-              <li>OpenAI-compatible fields included for switching to Ollama, LM Studio, or a hosted provider.</li>
+              <li>FastAPI exposes interactive docs at `/docs`.</li>
+              <li>The REST routers use `summary=` and `response_model=` annotations.</li>
+              <li>The README documents the WebSocket collaboration protocol separately.</li>
+              <li>The docs surface therefore covers both REST and realtime behavior.</li>
             </ul>
           </div>
-        </div>
-
-        <div class="stats" style="margin-top: 14px;">
-          <div class="stat"><strong>66</strong><span>Backend Tests</span></div>
-          <div class="stat"><strong>20</strong><span>Frontend Tests</span></div>
-          <div class="stat"><strong>1</strong><span>Rehearsal Test</span></div>
-          <div class="stat"><strong>1</strong><span>PDF Report</span></div>
         </div>
 
         <div class="grid-2">
@@ -1254,7 +1213,7 @@
                 <tr><td>AI panel</td><td>streaming behavior, actions, cancel/error flow</td></tr>
                 <tr><td>AI history</td><td>document-level audit display updates correctly</td></tr>
                 <tr><td>Editor collaboration</td><td>remote cursor rendering and collaboration hooks behave correctly</td></tr>
-                <tr><td>AI undo proof</td><td>accepted AI-style insertion can be reverted through editor history</td></tr>
+                <tr><td>AI undo proof</td><td>`EditorTextarea.test.jsx` proves an accepted AI-style insertion can be reverted through `commands.undo()`</td></tr>
               </tbody>
             </table>
           </div>
@@ -1264,7 +1223,8 @@
           <strong>Why the Rehearsal Test Matters</strong>
           `tests/test_submission_rehearsal.py` ties together auth, sharing, AI,
           export, version restore, and collaboration messaging in one grading-style
-          path. It is the closest automated approximation of the live demo flow.
+          path. It supports the report's evidence chain, but it is still separate
+          from the live demo itself.
         </div>
         <div class="page-number">Page 8</div>
       </section>
@@ -1343,19 +1303,12 @@
           </table>
         </div>
 
-        <div class="grid-3" style="margin-top: 14px;">
-          <div class="mini-card">
-            <h3>Documentation Result</h3>
-            <p>The repo now contains layered docs: quickstart, deviations, final architecture addendum, demo checklist, and this detailed report.</p>
-          </div>
-          <div class="mini-card">
-            <h3>Implementation Result</h3>
-            <p>The final code now supports streamed AI, visible Yjs collaboration, export, version restore, and stronger test coverage.</p>
-          </div>
-          <div class="mini-card">
-            <h3>Grading Result</h3>
-            <p>The submission is easier to grade because the docs and runtime no longer tell different stories about the app.</p>
-          </div>
+        <div class="note" style="margin-top: 14px;">
+          <strong>Reading This Section Together With The Repo</strong>
+          README, deviations, architecture addendum, demo checklist, and this
+          report are intended to be read together. The goal is to describe the
+          shipped repo directly rather than imply a larger architecture that was
+          not delivered in the final PoC.
         </div>
         <div class="page-number">Page 9</div>
       </section>
@@ -1363,13 +1316,13 @@
       <section class="page closing section">
         <div class="section-head">
           <div>
-            <div class="kicker" style="color: rgba(247, 251, 255, 0.72);">Section 9</div>
-            <h2>Demo Strategy, Trade-Offs, and Final Position</h2>
+            <div class="kicker">Section 9</div>
+            <h2>Demo Outline and Known Trade-Offs</h2>
           </div>
           <p>
-            The submission is strongest when presented through a short observable
-            demo and defended as a coherent, documented PoC rather than a disguised
-            production system.
+            The repo includes a recommended demo order and a separate list of
+            known trade-offs. Both are included here so the report stays factual
+            about what was implemented and what remains outside scope.
           </p>
         </div>
 
@@ -1414,28 +1367,10 @@
               <li><span class="severity sev-good">Documented</span> These trade-offs are explained openly in `DEVIATIONS.md` rather than hidden.</li>
             </ul>
 
-            <h3 style="margin-top: 18px;">Final Position</h3>
-            <p>
-              The final submission is technically stronger than the earlier PoC
-              because the architecture, runtime behavior, documentation, and tests
-              are now aligned. That consistency is one of the biggest quality gains
-              in the final Assignment 2 state.
+            <p class="caption" style="margin-top: 18px;">
+              These trade-offs are retained in the report so scope boundaries are
+              visible rather than implied.
             </p>
-          </div>
-        </div>
-
-        <div class="grid-3" style="margin-top: 14px;">
-          <div class="closing-card">
-            <h3>What Is Strong</h3>
-            <p>Auth, sharing, Yjs collaboration, streamed AI, versions, export, test coverage, and reviewer-friendly startup.</p>
-          </div>
-          <div class="closing-card">
-            <h3>What Is Explicitly Documented</h3>
-            <p>Auth simplification, realtime trade-offs, missing external services, export scope, and setup choices.</p>
-          </div>
-          <div class="closing-card">
-            <h3>What This Report Defends</h3>
-            <p>That the delivered repo is a coherent final system, not a partial code drop with mismatched documentation.</p>
           </div>
         </div>
         <div class="page-number">Page 10</div>
