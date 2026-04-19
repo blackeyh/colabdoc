@@ -86,6 +86,20 @@ workspace or package-manager setup.
 **How applied:** `start.sh` bootstraps both halves of the stack from the repo
 root, and the README documents the actual folder layout shipped in the PoC.
 
+## External services from Assignment 1 — email/file storage omitted
+
+**What:** The Assignment 1 diagrams included external email and file-storage
+services, but the Assignment 2 PoC does not integrate either one.
+
+**Why:** The shipped Assignment 2 feature set does not require attachment
+storage or outbound email to demonstrate document collaboration, AI assistance,
+permissions, export, or version history. Keeping these integrations out of the
+PoC reduced setup friction and avoided dead configuration paths for reviewers.
+
+**How applied:** Sharing is handled entirely inside the app by searching and
+granting access to existing users, and exports are generated on demand from the
+stored document content instead of being written to an external storage bucket.
+
 ## Export — HTML and TXT rather than binary office formats
 
 **What:** Documents can be exported through
@@ -114,7 +128,9 @@ edited Postgres URL, which was a real friction point during testing.
 
 **How applied:** The default reviewer path is now "clone -> `./start.sh` ->
 open the app". Postgres remains supported by swapping `DATABASE_URL`, but the
-example config is intentionally zero-dependency for local review.
+example config is intentionally zero-dependency for local review. When the
+script auto-creates `.env`, it also replaces the template JWT secret with a
+fresh generated local secret.
 
 ## AI — provider abstraction and a null provider
 
@@ -153,36 +169,40 @@ for the whole document, not just the current user. On Postgres, a startup
 columns to existing deployments; on SQLite (used in tests) the columns are
 created by `Base.metadata.create_all`.
 
-## Realtime stack — in-process WebSocket manager instead of a separate realtime service
+## Realtime stack — Yjs on the client, lightweight FastAPI relay on the server
 
-**What:** Collaboration runs through FastAPI plus an in-process WebSocket
-manager. It does not use a separate realtime service, Redis fan-out, or Yjs.
+**What:** Live text collaboration now uses Yjs in the frontend editor, while
+FastAPI still provides the authenticated WebSocket transport, room presence,
+cursor messages, version-reset broadcasts, and durable JSON persistence. There
+is still no separate realtime service or Redis backplane.
 
-**Why:** This keeps the deployment/demo story lightweight while still covering
-the core assignment requirements: authenticated WebSocket collaboration,
-presence, typing, remote cursor display, and persisted shared edits.
+**Why:** This closes the biggest gap between the Assignment 1 design and the
+earlier Assignment 2 PoC: concurrent edits from connected collaborators now
+merge at the CRDT layer instead of replacing the whole document. At the same
+time, the deployment story stays simple enough for a local course demo.
 
-**How applied:** The backend keeps active users in memory for the current
-process and broadcasts document events directly from the FastAPI app.
+**How applied:** `EditorTextarea.jsx` binds Tiptap to a per-document Yjs doc via
+`@tiptap/extension-collaboration`, emits incremental updates plus full snapshots,
+and applies incoming snapshots/updates over the existing WebSocket. The backend
+stores the latest opaque snapshot for each in-memory room and replays it to late
+joiners, while `persist` messages continue to write the canonical JSON copy used
+by export, AI context, and version history.
 
-## Collab — typing indicator, in-editor cursor presence, and last-write-wins offline queue
+## Collaboration presence — cursor rendering, typing, and snapshot-based reconnect
 
-**What:** The WebSocket protocol gained a `typing` message in both
-directions. Remote collaborator cursor ranges are rendered inside the Tiptap
-editor with ProseMirror decorations, and while the client is disconnected it
-keeps a single-slot last-write-wins buffer of the latest Tiptap JSON and
-flushes it on reconnect.
+**What:** Presence still includes `typing` plus in-editor remote cursor/selection
+rendering, but reconnect behavior no longer falls back to full-document
+last-write-wins overwrites. Instead, clients republish their latest Yjs snapshot
+and ask peers to replay the current room state.
 
-**Why:** The brief asks for presence/typing and for resilience against
-transient disconnects. A full CRDT would handle concurrent offline edits
-correctly, but is out of scope for this batch.
+**Why:** The brief asks for presence, realtime collaboration, and better
+conflict handling. Snapshot replay is a practical compromise that works with the
+existing FastAPI server without adding a full Yjs persistence service.
 
-**How applied:** `frontend/src/hooks/useWebSocket.js` exposes an `onReconnect`
-callback; `EditorPage.jsx` uses it to pull the canonical document via
-`apiFetch('/documents/{id}')` before flushing the offline queue, so the last
-server state wins when there is a conflict. `EditorTextarea.jsx` registers a
-ProseMirror plugin that turns incoming remote selection positions into colored
-carets and inline highlights.
+**How applied:** The server emits `sync_request`, `crdt_update`, `crdt_snapshot`,
+and `reset` WebSocket messages. The frontend keeps the latest local snapshot for
+reconnect, and `EditorTextarea.jsx` still overlays collaborator carets/highlights
+with ProseMirror decorations on top of the Yjs-synchronized document.
 
 ## Testing — SQLite with a JSONB→JSON shim
 
@@ -207,7 +227,10 @@ These were explicitly deferred and are not in the current change set:
 - **End-to-end validation against a real LLM.** `OpenAIProvider` is
   implemented but not exercised in CI; manual verification against LM Studio
   is the current story.
-- **CRDT/Yjs conflict resolution.** The offline queue is last-write-wins.
+- **Dedicated Yjs persistence / multi-process sync.** The server stores only the
+  latest opaque room snapshot in memory plus the durable JSON document in the
+  database. It does not persist the full Yjs update log or coordinate multiple
+  app instances through a shared Yjs backend.
 - **Server-side refresh-token revocation list.** Logout is stateless; a
   compromised refresh token is valid until it expires.
 - **Multi-instance realtime fan-out.** The in-memory WebSocket manager is

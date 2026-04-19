@@ -28,6 +28,7 @@ function parseEventBlock(block) {
 export default function AIPanel({
   docId,
   selectedText,
+  selectedRange,
   context,
   canUseAI,
   onAccept,
@@ -41,6 +42,7 @@ export default function AIPanel({
   const [interactionId, setInteractionId] = useState(null)
   const [streamNotice, setStreamNotice] = useState('')
   const abortRef = useRef(null)
+  const requestedRangeRef = useRef(null)
 
   const hasSelection = (selectedText || '').trim().length > 0
   const wordCount = hasSelection ? selectedText.trim().split(/\s+/).length : 0
@@ -59,6 +61,7 @@ export default function AIPanel({
     setAction('')
     setInteractionId(null)
     setStreamNotice('')
+    requestedRangeRef.current = null
   }
 
   async function handleAction(nextAction) {
@@ -78,6 +81,7 @@ export default function AIPanel({
     setAction(nextAction)
     setInteractionId(null)
     setStreamNotice('')
+    requestedRangeRef.current = selectedRange ? { ...selectedRange } : null
     let partial = ''
     let sawDone = false
     try {
@@ -185,7 +189,7 @@ export default function AIPanel({
     }
     const chosen = editable ?? suggestion
     const edited = chosen !== suggestion
-    onAccept(chosen)
+    onAccept(chosen, requestedRangeRef.current)
     await resolve(edited ? 'edited' : 'accepted', edited ? chosen : undefined)
     resetPanel()
   }

@@ -26,6 +26,7 @@ function streamResponse(events) {
 const baseProps = {
   docId: 42,
   context: 'the whole document',
+  selectedRange: { start: 5, end: 10, text: 'hello there' },
   canUseAI: true,
   showToast: vi.fn(),
 }
@@ -76,7 +77,7 @@ describe('AIPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: /Rewrite/i }))
     await userEvent.click(await screen.findByRole('button', { name: /^Accept$/ }))
 
-    expect(onAccept).toHaveBeenCalledWith('improved text')
+    expect(onAccept).toHaveBeenCalledWith('improved text', { start: 5, end: 10, text: 'hello there' })
     expect(apiFetch).toHaveBeenLastCalledWith(
       '/documents/42/ai/interactions/7/resolve',
       expect.objectContaining({
@@ -101,7 +102,7 @@ describe('AIPanel', () => {
     await userEvent.type(textarea, 'my edit')
     await userEvent.click(screen.getByRole('button', { name: /Accept edited/i }))
 
-    expect(onAccept).toHaveBeenCalledWith('my edit')
+    expect(onAccept).toHaveBeenCalledWith('my edit', { start: 5, end: 10, text: 'hello there' })
     const lastCall = apiFetch.mock.calls.at(-1)
     expect(lastCall[0]).toBe('/documents/42/ai/interactions/9/resolve')
     expect(lastCall[1].body).toContain('"user_action":"edited"')

@@ -8,7 +8,7 @@ import VersionsPanel from './VersionsPanel'
 export default function Sidebar({
   role, isOwner, activeUsers, typingUsers, remoteCursors,
   permissions, versions, docId, currentUser,
-  selectedText, context,
+  selectedText, selectedRange, context,
   onGrantPermission, onUpdatePermission, onRevokePermission,
   onRestoreVersion, onAcceptAISuggestion, showToast,
 }) {
@@ -24,6 +24,7 @@ export default function Sidebar({
       <AIPanel
         docId={docId}
         selectedText={selectedText}
+        selectedRange={selectedRange}
         context={context}
         canUseAI={canEdit}
         onAccept={onAcceptAISuggestion}

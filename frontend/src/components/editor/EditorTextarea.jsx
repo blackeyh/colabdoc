@@ -1,9 +1,17 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
+import Collaboration from '@tiptap/extension-collaboration'
 import StarterKit from '@tiptap/starter-kit'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
-import { EMPTY_TIPTAP_DOC } from '../../lib/contentCompat'
+import {
+  applyIncrementalUpdate,
+  createSnapshotFromContent,
+  createYDocFromSnapshot,
+  encodeBytesToBase64,
+  getContentFromYDoc,
+  getSnapshotFromYDoc,
+} from '../../lib/collaboration'
 
 const CURSOR_COLORS = [
   '#ef4444', '#f97316', '#eab308', '#22c55e',
@@ -159,31 +167,36 @@ function Toolbar({ editor, disabled }) {
 const EditorTextarea = forwardRef(function EditorTextarea(
   {
     content,
+    initialSnapshot,
     canEdit,
     role,
     remoteCursors,
+    syncPending = false,
     onChange,
+    onCollabUpdate,
+    onInitialSnapshot,
     onCursorChange,
     onSelectionChange,
   },
   ref,
 ) {
-  const skipNextUpdateRef = useRef(false)
-  const lastLocalJsonRef = useRef(null)
+  const ydocRef = useRef(null)
+  const hasAnnouncedInitialSnapshotRef = useRef(false)
+
+  if (!ydocRef.current) {
+    const snapshot = initialSnapshot || createSnapshotFromContent(content)
+    ydocRef.current = createYDocFromSnapshot(snapshot)
+  }
 
   const editor = useEditor({
-    extensions: [StarterKit],
-    content: content || EMPTY_TIPTAP_DOC,
+    extensions: [
+      StarterKit.configure({ history: false }),
+      Collaboration.configure({
+        document: ydocRef.current,
+        field: 'content',
+      }),
+    ],
     editable: !!canEdit,
-    onUpdate: ({ editor: ed }) => {
-      if (skipNextUpdateRef.current) {
-        skipNextUpdateRef.current = false
-        return
-      }
-      const json = ed.getJSON()
-      lastLocalJsonRef.current = json
-      onChange?.(json)
-    },
     onSelectionUpdate: ({ editor: ed }) => {
       const { from, to } = ed.state.selection
       const text = ed.state.doc.textBetween(from, to, '\n')
@@ -198,6 +211,42 @@ const EditorTextarea = forwardRef(function EditorTextarea(
   }, [editor, canEdit])
 
   useEffect(() => {
+    const ydoc = ydocRef.current
+    if (!ydoc) return
+    const waitingForRemoteSeed = syncPending && !initialSnapshot
+
+    const emitSnapshot = () => {
+      if (hasAnnouncedInitialSnapshotRef.current) return
+      hasAnnouncedInitialSnapshotRef.current = true
+      onInitialSnapshot?.(getSnapshotFromYDoc(ydoc))
+    }
+
+    const emitCurrentContent = (meta) => {
+      onChange?.(getContentFromYDoc(ydoc), meta)
+    }
+
+    const handleUpdate = (update, origin) => {
+      const isRemoteOrigin = origin === 'remote' || origin === 'snapshot'
+      emitCurrentContent({ remote: isRemoteOrigin, origin: origin || 'local' })
+      if (!isRemoteOrigin) {
+        onCollabUpdate?.({
+          update: encodeBytesToBase64(update),
+          snapshot: getSnapshotFromYDoc(ydoc),
+        })
+      }
+    }
+
+    if (!waitingForRemoteSeed) {
+      emitCurrentContent({ remote: true, origin: 'mount' })
+      emitSnapshot()
+    }
+    ydoc.on('update', handleUpdate)
+    return () => {
+      ydoc.off('update', handleUpdate)
+    }
+  }, [initialSnapshot, onChange, onCollabUpdate, onInitialSnapshot, syncPending])
+
+  useEffect(() => {
     if (!editor) return
     editor.unregisterPlugin(remoteCursorPluginKey)
     if (remoteCursors && Object.keys(remoteCursors).length > 0) {
@@ -208,21 +257,26 @@ const EditorTextarea = forwardRef(function EditorTextarea(
     }
   }, [editor, remoteCursors])
 
-  // Apply external content changes (WS updates, version restores) without
-  // recursing through onUpdate.
-  useEffect(() => {
-    if (!editor || !content) return
-    const current = editor.getJSON()
-    if (JSON.stringify(current) === JSON.stringify(content)) return
-    skipNextUpdateRef.current = true
-    editor.commands.setContent(content, false)
-  }, [editor, content])
-
   useImperativeHandle(ref, () => ({
     getEditor: () => editor,
+    applyRemoteUpdate: (encodedUpdate) => {
+      if (!ydocRef.current || !encodedUpdate) return
+      applyIncrementalUpdate(ydocRef.current, encodedUpdate)
+    },
+    getFullSyncUpdate: () => {
+      if (!ydocRef.current) return null
+      return getSnapshotFromYDoc(ydocRef.current)
+    },
     insertAtSelection: (text) => {
       if (!editor || typeof text !== 'string') return
       const { from, to } = editor.state.selection
+      editor.chain().focus().insertContentAt({ from, to }, text).run()
+    },
+    insertAtRange: (range, text) => {
+      if (!editor || typeof text !== 'string' || !range) return
+      const docSize = editor.state.doc.content.size
+      const from = clampPosition(range.start, docSize)
+      const to = clampPosition(range.end, docSize)
       editor.chain().focus().insertContentAt({ from, to }, text).run()
     },
     getSelectedText: () => {
@@ -245,6 +299,11 @@ const EditorTextarea = forwardRef(function EditorTextarea(
       <Toolbar editor={editor} disabled={!canEdit} />
 
       <div className={`flex-1 overflow-auto ${canEdit ? 'bg-white' : 'bg-gray-100'}`}>
+        {syncPending && (
+          <div className="border-b border-sky-200 bg-sky-50 px-4 py-2 text-sm text-sky-700">
+            Syncing the live collaboration state…
+          </div>
+        )}
         <EditorContent
           editor={editor}
           className="prose max-w-3xl mx-auto px-8 py-6 focus:outline-none"

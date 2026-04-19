@@ -12,7 +12,7 @@ A collaborative document editor with real-time co-editing, user authentication, 
 
 - Backend: FastAPI + SQLAlchemy + SQLite/PostgreSQL
 - Frontend: React + Vite
-- Realtime: WebSockets
+- Realtime: WebSockets + Yjs snapshots/updates
 - Auth: JWT
 - Editor: Tiptap (ProseMirror)
 - AI: OpenAI-compatible provider abstraction + null test/demo provider
@@ -67,6 +67,7 @@ This script:
 - creates `.venv` if it does not exist
 - installs backend dependencies when the venv is missing or requirements changed
 - creates `.env` from `.env.example` if no env file exists
+- replaces the template JWT secret with a generated local secret on first run
 - installs frontend packages if needed
 - builds the React app into `frontend/dist`
 - starts the FastAPI server on port `8000`
@@ -89,7 +90,7 @@ cd backend
 
 - The React frontend owns authentication state, the Tiptap editor, and the AI/version/sidebar UX.
 - The FastAPI backend exposes REST APIs for auth, documents, permissions, versions, export, and AI.
-- A single WebSocket endpoint handles collaboration presence, typing, cursors, and persisted edits.
+- A single WebSocket endpoint handles collaboration presence, Yjs update relay, cursors, typing, and durable document snapshots.
 - SQLAlchemy stores documents, permissions, versions, and AI interaction history.
 - AI providers sit behind one backend interface, so switching between `null`, Ollama/LM Studio, or OpenAI-compatible hosted APIs is a config change rather than a route rewrite.
 
@@ -99,7 +100,7 @@ cd backend
 - Create and manage documents
 - Add collaborators by searching their name or email
 - Set permissions: Editor, Commenter, Viewer
-- Real-time collaborative editing via WebSockets
+- Real-time collaborative editing via Yjs over authenticated WebSockets
 - In-editor collaborator carets and selection highlights
 - Version history with restore
 - Streamed AI assistant suggestions with accept/reject/edit flow
@@ -122,8 +123,12 @@ The access token is the short-lived JWT issued by `POST /auth/login` (see [Authe
 
 | Type | Payload | Emitted when |
 |---|---|---|
-| `init` | `{content, title, role, active_users}` | Immediately after auth, to seed local state. |
-| `update` | `{content, user}` | Another user persisted a change. |
+| `init` | `{content, title, role, active_users, crdt_state}` | Immediately after auth, to seed local state. |
+| `update` | `{content, user}` | Legacy full-document update path for backwards compatibility. |
+| `crdt_update` | `{update, user}` | Another user sent a Yjs incremental update. |
+| `crdt_snapshot` | `{snapshot, user, target_user_id?}` | Full Yjs snapshot used for late-join or reconnect sync. |
+| `sync_request` | `{requester}` | A collaborator is asking peers to replay the current CRDT snapshot. |
+| `reset` | `{content, snapshot, user}` | A version restore replaced the whole shared document. |
 | `cursor` | `{user, position}` | Another user moved their selection. |
 | `typing` | `{user}` | Another user sent a typing ping. |
 | `user_joined` | `{user}` | A collaborator joined the room. |
@@ -141,15 +146,28 @@ non-collapsed selections get a tinted highlight in that collaborator's color.
 
 | Type | Payload | Effect |
 |---|---|---|
-| `update` | `{content, save_version?}` | Persist the document; optionally snapshot a new Version. Requires `editor` or `owner` role. |
+| `update` | `{content, save_version?}` | Legacy full-document persist/broadcast path. |
+| `persist` | `{content, save_version?}` | Persist the latest rich-text JSON and optionally snapshot a new Version. Requires `editor` or `owner` role. |
+| `crdt_update` | `{update, snapshot}` | Relay a Yjs incremental update and refresh the room’s latest full snapshot. |
+| `crdt_snapshot` | `{snapshot, target_user_id?}` | Publish or directly replay a full Yjs document snapshot. |
+| `sync_request` | `{}` | Ask connected peers to replay their latest full snapshot. |
+| `reset` | `{content, snapshot}` | Broadcast a version-restore reset to all collaborators. |
 | `cursor` | `{position}` | Broadcast selection position. |
 | `typing` | `{}` | Broadcast a typing indicator (rate-limited by the client). |
 
 ### Offline behaviour
 
-While the socket is disconnected, the frontend queues a single last-write-wins
-update and flushes it on reconnect. This is an intentional simplification — a
-CRDT (e.g. Yjs) would preserve concurrent edits, but is out of scope.
+Live editing now runs through Yjs, so concurrent edits from multiple connected
+collaborators merge at the CRDT layer instead of overwriting the whole
+document. The backend still stores durable JSON snapshots for export, AI, and
+version history, and caches the latest opaque Yjs snapshot per room so late
+joiners can bootstrap quickly.
+
+If a client disconnects, it keeps the latest full Yjs snapshot plus the latest
+durable JSON persist request. On reconnect, it republishes its current snapshot,
+requests a fresh peer snapshot, and then flushes the persisted server save. This
+is a pragmatic middle ground between full Yjs server persistence and the older
+last-write-wins document overwrite flow.
 
 ## AI Streaming
 
@@ -194,8 +212,10 @@ context plus the user's current selection; they are never auto-applied. The
 user always compares original vs. suggestion first, then explicitly accepts,
 edits, or rejects it. If collaborators have changed the surrounding document
 significantly while a suggestion is open, the safe workflow is to reject it and
-run AI again against the latest shared state. Accepted suggestions still flow
-through the editor's undo history, so they can be reverted immediately.
+run AI again against the latest shared state. The accept action is anchored to
+the original requested range, so it does not silently follow a later caret move
+to a different location. Accepted suggestions still flow through the editor's
+undo history, so they can be reverted immediately.
 
 ## Document Export
 

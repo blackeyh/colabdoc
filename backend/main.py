@@ -101,15 +101,22 @@ async def document_ws(
             "content": doc.content,
             "title": doc.title,
             "active_users": manager.active_users(doc_id),
+            "crdt_state": manager.snapshot(doc_id),
             "role": role,
         }))
+
+        await manager.broadcast(
+            doc_id,
+            {"type": "sync_request", "requester": user_info},
+            exclude=websocket,
+        )
 
         try:
             while True:
                 raw = await websocket.receive_text()
                 msg = json.loads(raw)
 
-                if msg.get("type") == "update" and role in ("editor", "owner"):
+                if msg.get("type") in ("update", "persist") and role in ("editor", "owner"):
                     # Persist to DB
                     new_content = msg.get("content", doc.content)
                     doc.content = new_content
@@ -136,12 +143,79 @@ async def document_ws(
                     db.commit()
                     db.refresh(doc)
 
-                    # Broadcast to other users
-                    await manager.broadcast(doc_id, {
-                        "type": "update",
-                        "content": new_content,
-                        "user": user_info,
-                    }, exclude=websocket)
+                    if msg.get("type") == "update":
+                        # Legacy full-document update path kept for backwards compatibility.
+                        await manager.broadcast(doc_id, {
+                            "type": "update",
+                            "content": new_content,
+                            "user": user_info,
+                        }, exclude=websocket)
+
+                elif msg.get("type") == "crdt_update" and role in ("editor", "owner"):
+                    snapshot = msg.get("snapshot")
+                    if snapshot:
+                        manager.set_snapshot(doc_id, snapshot)
+                    await manager.broadcast(
+                        doc_id,
+                        {
+                            "type": "crdt_update",
+                            "update": msg.get("update"),
+                            "user": user_info,
+                        },
+                        exclude=websocket,
+                    )
+
+                elif msg.get("type") == "crdt_snapshot":
+                    snapshot = msg.get("snapshot")
+                    if snapshot:
+                        manager.set_snapshot(doc_id, snapshot)
+                    target_user_id = msg.get("target_user_id")
+                    if target_user_id:
+                        await manager.send_to_user(
+                            doc_id,
+                            target_user_id,
+                            {
+                                "type": "crdt_snapshot",
+                                "snapshot": snapshot,
+                                "target_user_id": target_user_id,
+                                "user": user_info,
+                            },
+                        )
+                    else:
+                        await manager.broadcast(
+                            doc_id,
+                            {
+                                "type": "crdt_snapshot",
+                                "snapshot": snapshot,
+                                "user": user_info,
+                            },
+                            exclude=websocket,
+                        )
+
+                elif msg.get("type") == "sync_request":
+                    await manager.broadcast(
+                        doc_id,
+                        {
+                            "type": "sync_request",
+                            "requester": user_info,
+                        },
+                        exclude=websocket,
+                    )
+
+                elif msg.get("type") == "reset" and role in ("editor", "owner"):
+                    snapshot = msg.get("snapshot")
+                    if snapshot:
+                        manager.set_snapshot(doc_id, snapshot)
+                    await manager.broadcast(
+                        doc_id,
+                        {
+                            "type": "reset",
+                            "content": msg.get("content", doc.content),
+                            "snapshot": snapshot,
+                            "user": user_info,
+                        },
+                        exclude=websocket,
+                    )
 
                 elif msg.get("type") == "cursor":
                     # Broadcast cursor position

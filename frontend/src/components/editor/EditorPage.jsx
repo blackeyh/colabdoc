@@ -5,6 +5,7 @@ import EditorBar from './EditorBar'
 import EditorTextarea from './EditorTextarea'
 import Sidebar from './sidebar/Sidebar'
 import { toTiptap, extractPlainText, EMPTY_TIPTAP_DOC } from '../../lib/contentCompat'
+import { createSnapshotFromContent } from '../../lib/collaboration'
 
 const SAVE_DEBOUNCE_MS = 600
 const TYPING_THROTTLE_MS = 2000
@@ -25,7 +26,7 @@ function getFilenameFromHeaders(headers, fallback) {
 
 export default function EditorPage({ initialDoc, currentUser, onBack, showToast }) {
   const [doc, setDoc] = useState(initialDoc)
-  const [content, setContent] = useState(EMPTY_TIPTAP_DOC)
+  const [content, setContent] = useState(() => toTiptap(initialDoc?.content))
   const [role, setRole] = useState(null)
   const [wsStatus, setWsStatus] = useState('connecting')
   const [activeUsers, setActiveUsers] = useState([])
@@ -34,14 +35,20 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
   const [versions, setVersions] = useState([])
   const [permissions, setPermissions] = useState([])
   const [selection, setSelection] = useState({ start: 0, end: 0, text: '' })
+  const [collabSession, setCollabSession] = useState(null)
   const saveTimerRef = useRef(null)
   const typingEmittedAtRef = useRef(0)
   const contentRef = useRef(content)
   contentRef.current = content
-  const offlineQueueRef = useRef(null)
+  const offlinePersistRef = useRef(null)
+  const offlineSnapshotRef = useRef(null)
   const wsStatusRef = useRef(wsStatus)
   wsStatusRef.current = wsStatus
   const editorRef = useRef(null)
+  const sendRef = useRef(() => {})
+  const collabInitializedRef = useRef(false)
+  const collabSessionRef = useRef(collabSession)
+  collabSessionRef.current = collabSession
 
   const docId = doc?.id
   const canEdit = ['editor', 'owner'].includes(role)
@@ -50,16 +57,63 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
   // ─── WebSocket message handler ────────────────────────────────────────────
   const handleWsMessage = useCallback((msg) => {
     switch (msg.type) {
-      case 'init':
+      case 'init': {
         setRole(msg.role)
-        setContent(toTiptap(msg.content))
         setActiveUsers(msg.active_users ?? [])
+        setDoc(prev => (prev ? { ...prev, title: msg.title ?? prev.title } : prev))
+        if (!collabInitializedRef.current) {
+          const seedContent = toTiptap(msg.content ?? contentRef.current)
+          const activeCount = msg.active_users?.length ?? 0
+          const snapshot = msg.crdt_state || (activeCount > 1 ? null : createSnapshotFromContent(seedContent))
+          setContent(seedContent)
+          setCollabSession(prev => ({
+            key: (prev?.key ?? 0) + 1,
+            initialSnapshot: snapshot,
+            syncPending: !snapshot,
+          }))
+          collabInitializedRef.current = true
+        }
+        break
+      }
+
+      case 'update':
+        if (!collabInitializedRef.current) {
+          setContent(toTiptap(msg.content))
+        }
         break
 
-      case 'update': {
-        setContent(toTiptap(msg.content))
-        setWsStatus('saved')
-        setTimeout(() => setWsStatus(s => (s === 'saved' ? 'connected' : s)), 2000)
+      case 'crdt_update':
+        editorRef.current?.applyRemoteUpdate?.(msg.update)
+        break
+
+      case 'crdt_snapshot':
+        if (msg.target_user_id && msg.target_user_id !== currentUser?.id) break
+        editorRef.current?.applyRemoteUpdate?.(msg.snapshot)
+        setCollabSession(prev => (prev ? { ...prev, syncPending: false } : prev))
+        break
+
+      case 'sync_request': {
+        if (msg.requester?.id === currentUser?.id) break
+        const snapshot = editorRef.current?.getFullSyncUpdate?.()
+        if (!snapshot) break
+        sendRef.current?.({
+          type: 'crdt_snapshot',
+          snapshot,
+          target_user_id: msg.requester?.id,
+        })
+        break
+      }
+
+      case 'reset': {
+        const restored = toTiptap(msg.content)
+        const snapshot = msg.snapshot || createSnapshotFromContent(restored)
+        setContent(restored)
+        setSelection({ start: 0, end: 0, text: '' })
+        setCollabSession(prev => ({
+          key: (prev?.key ?? 0) + 1,
+          initialSnapshot: snapshot,
+          syncPending: false,
+        }))
         break
       }
 
@@ -103,13 +157,21 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
       default:
         break
     }
-  }, [])
+  }, [currentUser?.id])
 
   const flushOfflineQueue = useCallback(() => {
-    if (!offlineQueueRef.current) return
-    const pending = offlineQueueRef.current
-    offlineQueueRef.current = null
-    send({ type: 'update', content: pending, save_version: false })
+    if (offlineSnapshotRef.current) {
+      sendRef.current?.({ type: 'crdt_snapshot', snapshot: offlineSnapshotRef.current })
+      offlineSnapshotRef.current = null
+    }
+    if (!offlinePersistRef.current) return
+    const pending = offlinePersistRef.current
+    offlinePersistRef.current = null
+    sendRef.current?.({
+      type: 'persist',
+      content: pending.content,
+      save_version: pending.saveVersion,
+    })
     setWsStatus('saved')
   }, [])
 
@@ -117,12 +179,16 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
     if (!docId) return
     try {
       const fresh = await apiFetch(`/documents/${docId}`)
-      setDoc(fresh)
-      setContent(toTiptap(fresh.content))
+      setDoc(prev => (prev ? { ...prev, title: fresh.title } : fresh))
     } catch (_) {
       // Permission/network errors bubble up via status change; no toast spam.
     }
     flushOfflineQueue()
+    const liveSnapshot = editorRef.current?.getFullSyncUpdate?.()
+    if (liveSnapshot) {
+      sendRef.current?.({ type: 'crdt_snapshot', snapshot: liveSnapshot })
+    }
+    sendRef.current?.({ type: 'sync_request' })
   }, [docId, flushOfflineQueue])
 
   const handleStatusChange = useCallback((status) => {
@@ -144,6 +210,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
     onStatusChange: handleStatusChange,
     enabled: !!docId,
   })
+  sendRef.current = send
 
   // ─── Expire typing indicators ──────────────────────────────────────────────
   useEffect(() => {
@@ -168,7 +235,9 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
     apiFetch(`/documents/${docId}`)
       .then(d => {
         setDoc(d)
-        setContent(toTiptap(d.content))
+        if (!collabInitializedRef.current) {
+          setContent(toTiptap(d.content))
+        }
       })
       .catch(e => {
         showToast(e.message, 'error')
@@ -196,26 +265,57 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
     const now = Date.now()
     if (now - typingEmittedAtRef.current < TYPING_THROTTLE_MS) return
     typingEmittedAtRef.current = now
-    send({ type: 'typing' })
+    sendRef.current?.({ type: 'typing' })
   }
 
-  function sendUpdate(json) {
+  function persistDocument(json, saveVersion = false) {
     if (wsStatusRef.current === 'connected') {
       try {
-        send({ type: 'update', content: json, save_version: false })
+        sendRef.current?.({
+          type: 'persist',
+          content: json,
+          save_version: saveVersion,
+        })
         setWsStatus('saved')
       } catch (_) {
         setWsStatus('error')
       }
     } else {
-      // Offline queue — last-write-wins single slot.
-      offlineQueueRef.current = json
+      offlinePersistRef.current = { content: json, saveVersion }
       setWsStatus('offline')
     }
   }
 
+  function handleCollabUpdate(payload) {
+    if (!payload?.snapshot || !payload?.update) return
+    if (wsStatusRef.current === 'connected') {
+      sendRef.current?.({
+        type: 'crdt_update',
+        update: payload.update,
+        snapshot: payload.snapshot,
+      })
+    } else {
+      offlineSnapshotRef.current = payload.snapshot
+      setWsStatus('offline')
+    }
+  }
+
+  function handleInitialSnapshot(snapshot) {
+    if (!snapshot || collabSessionRef.current?.syncPending) return
+    offlineSnapshotRef.current = snapshot
+    if (wsStatusRef.current === 'connected') {
+      sendRef.current?.({ type: 'crdt_snapshot', snapshot })
+      offlineSnapshotRef.current = null
+    }
+  }
+
   // ─── Editor actions ────────────────────────────────────────────────────────
-  function onContentChange(nextJson) {
+  function onContentChange(nextJson, meta = {}) {
+    setContent(nextJson)
+    if (meta.remote) {
+      setCollabSession(prev => (prev ? { ...prev, syncPending: false } : prev))
+      return
+    }
     if (!canEdit) {
       const msg =
         role === 'viewer'    ? 'You have viewer access — this document is read-only.' :
@@ -224,15 +324,14 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
       showToast(msg, 'warning')
       return
     }
-    setContent(nextJson)
     emitTypingPing()
     clearTimeout(saveTimerRef.current)
     setWsStatus('saving')
-    saveTimerRef.current = setTimeout(() => sendUpdate(nextJson), SAVE_DEBOUNCE_MS)
+    saveTimerRef.current = setTimeout(() => persistDocument(nextJson), SAVE_DEBOUNCE_MS)
   }
 
   function onCursorChange(position) {
-    send({ type: 'cursor', position })
+    sendRef.current?.({ type: 'cursor', position })
   }
 
   function handleSelectionChange(nextSelection) {
@@ -244,7 +343,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
       showToast('Only editors and owners can save versions.', 'warning')
       return
     }
-    send({ type: 'update', content: contentRef.current, save_version: true })
+    persistDocument(contentRef.current, true)
     setTimeout(loadVersions, 500)
   }
 
@@ -337,8 +436,15 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
         { method: 'POST' },
       )
       const restored = toTiptap(data.document.content)
+      const snapshot = createSnapshotFromContent(restored)
       setContent(restored)
-      send({ type: 'update', content: restored, save_version: false })
+      setSelection({ start: 0, end: 0, text: '' })
+      setCollabSession(prev => ({
+        key: (prev?.key ?? 0) + 1,
+        initialSnapshot: snapshot,
+        syncPending: false,
+      }))
+      sendRef.current?.({ type: 'reset', content: restored, snapshot })
       loadVersions()
       showToast(`Restored to version ${versionNumber}`, 'success')
     } catch (e) {
@@ -351,13 +457,17 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
     onBack()
   }
 
-  function handleAcceptAISuggestion(suggestion) {
+  function handleAcceptAISuggestion(suggestion, targetRange) {
     if (!canEdit) {
       showToast('You need edit access to apply an AI suggestion.', 'warning')
       return
     }
     if (!editorRef.current) return
-    editorRef.current.insertAtSelection(suggestion)
+    if (targetRange?.start && targetRange?.end) {
+      editorRef.current.insertAtRange(targetRange, suggestion)
+    } else {
+      editorRef.current.insertAtSelection(suggestion)
+    }
     // insertAtSelection triggers onUpdate → onContentChange → sendUpdate.
   }
 
@@ -376,16 +486,24 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
         onExport={handleExport}
       />
       <div className="flex flex-1 overflow-hidden">
-        <EditorTextarea
-          ref={editorRef}
-          content={content}
-          canEdit={canEdit}
-          role={role}
-          remoteCursors={remoteCursors}
-          onChange={onContentChange}
-          onCursorChange={onCursorChange}
-          onSelectionChange={handleSelectionChange}
-        />
+        {collabSession ? (
+          <EditorTextarea
+            key={collabSession.key}
+            ref={editorRef}
+            initialSnapshot={collabSession.initialSnapshot}
+            canEdit={canEdit}
+            role={role}
+            remoteCursors={remoteCursors}
+            syncPending={collabSession.syncPending}
+            onChange={onContentChange}
+            onCollabUpdate={handleCollabUpdate}
+            onInitialSnapshot={handleInitialSnapshot}
+            onCursorChange={onCursorChange}
+            onSelectionChange={handleSelectionChange}
+          />
+        ) : (
+          <div className="flex-1 bg-white" />
+        )}
         <Sidebar
           role={role}
           isOwner={isOwner}
@@ -397,6 +515,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
           docId={docId}
           currentUser={currentUser}
           selectedText={selection.text}
+          selectedRange={selection}
           context={contextForAI}
           onGrantPermission={handleGrantPermission}
           onUpdatePermission={handleUpdatePermission}

@@ -9,6 +9,14 @@ def _connect(client, doc_id, token):
     return client.websocket_connect(f"/ws/documents/{doc_id}?token={token}")
 
 
+def _receive_until(ws, expected_type, limit=8):
+    for _ in range(limit):
+        msg = ws.receive_json()
+        if msg.get("type") == expected_type:
+            return msg
+    raise AssertionError(f"expected {expected_type} within {limit} frames")
+
+
 def test_ws_rejects_invalid_token(client, doc_factory):
     doc = doc_factory("WS")
     try:
@@ -102,3 +110,66 @@ def test_ws_typing_broadcast(client, auth_user, user_factory, doc_factory):
         assert msg is not None
         assert msg["type"] == "typing"
         assert msg["user"]["id"] == auth_user["id"]
+
+
+def test_ws_crdt_snapshot_is_replayed_to_late_joiners(
+    client, auth_user, user_factory, doc_factory
+):
+    doc = doc_factory("WS5")
+    editor = user_factory(email="wss@example.com")
+    client.post(
+        f"/documents/{doc['id']}/permissions",
+        json={"user_id": editor["id"], "role": "editor"},
+        headers=auth_user["headers"],
+    )
+
+    with _connect(client, doc["id"], auth_user["access_token"]) as ws_owner:
+        ws_owner.receive_json()  # init
+        ws_owner.send_text(json.dumps({
+            "type": "crdt_snapshot",
+            "snapshot": "seed-state",
+        }))
+
+        with _connect(client, doc["id"], editor["access_token"]) as ws_editor:
+            msg = ws_editor.receive_json()
+            assert msg["type"] == "init"
+            assert msg["crdt_state"] == "seed-state"
+
+
+def test_ws_crdt_update_and_reset_broadcast_to_other_clients(
+    client, auth_user, user_factory, doc_factory
+):
+    doc = doc_factory("WS6")
+    editor = user_factory(email="wsy@example.com")
+    client.post(
+        f"/documents/{doc['id']}/permissions",
+        json={"user_id": editor["id"], "role": "editor"},
+        headers=auth_user["headers"],
+    )
+
+    with _connect(client, doc["id"], auth_user["access_token"]) as ws_owner, \
+         _connect(client, doc["id"], editor["access_token"]) as ws_editor:
+        ws_owner.receive_json()
+        ws_editor.receive_json()
+
+        _receive_until(ws_owner, "user_joined")
+        _receive_until(ws_owner, "sync_request")
+
+        ws_owner.send_text(json.dumps({
+            "type": "crdt_update",
+            "update": "delta-1",
+            "snapshot": "full-1",
+        }))
+        update_msg = _receive_until(ws_editor, "crdt_update")
+        assert update_msg["update"] == "delta-1"
+        assert update_msg["user"]["id"] == auth_user["id"]
+
+        restored = {"type": "doc", "content": [{"type": "paragraph"}]}
+        ws_owner.send_text(json.dumps({
+            "type": "reset",
+            "content": restored,
+            "snapshot": "full-2",
+        }))
+        reset_msg = _receive_until(ws_editor, "reset")
+        assert reset_msg["content"] == restored
+        assert reset_msg["snapshot"] == "full-2"
