@@ -97,4 +97,46 @@ describe('EditorTextarea remote cursor rendering', () => {
       expect(secondText).toBe(firstText)
     })
   })
+
+  it('lets an accepted AI-style insertion be undone through collaboration history', async () => {
+    const editorRef = React.createRef()
+
+    render(
+      <EditorTextarea
+        ref={editorRef}
+        content={doc}
+        canEdit
+        role="editor"
+        remoteCursors={{}}
+        onChange={() => {}}
+        onCollabUpdate={() => {}}
+        onInitialSnapshot={() => {}}
+        onCursorChange={() => {}}
+        onSelectionChange={() => {}}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(editorRef.current?.getEditor()).toBeTruthy()
+    })
+
+    const initialText = editorRef.current.getEditor().getText()
+
+    await act(async () => {
+      editorRef.current.insertAtRange({ start: 1, end: 1 }, 'AI accepted ')
+    })
+
+    await waitFor(() => {
+      expect(editorRef.current.getEditor().getText()).toContain('AI accepted')
+    })
+
+    await act(async () => {
+      const undone = editorRef.current.getEditor().commands.undo()
+      expect(undone).toBe(true)
+    })
+
+    await waitFor(() => {
+      expect(editorRef.current.getEditor().getText()).toBe(initialText)
+    })
+  })
 })
