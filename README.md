@@ -98,6 +98,9 @@ For the final submission architecture diagrams and the explicit mapping from the
 Assignment 1 report to the delivered Assignment 2 system, see
 [ARCHITECTURE_ADDENDUM.md](ARCHITECTURE_ADDENDUM.md).
 
+For the recommended live grading/demo flow, see
+[DEMO_CHECKLIST.md](DEMO_CHECKLIST.md).
+
 ## Features
 
 - Sign up / log in
