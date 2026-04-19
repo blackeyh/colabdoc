@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -21,6 +21,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
 
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
@@ -34,12 +38,12 @@ def _encode(payload: dict) -> str:
 
 
 def create_access_token(user_id: int) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=JWT_ACCESS_MINUTES)
+    expire = utc_now() + timedelta(minutes=JWT_ACCESS_MINUTES)
     return _encode({"sub": str(user_id), "exp": expire, "type": TOKEN_TYPE_ACCESS})
 
 
 def create_refresh_token(user_id: int) -> str:
-    expire = datetime.utcnow() + timedelta(days=JWT_REFRESH_DAYS)
+    expire = utc_now() + timedelta(days=JWT_REFRESH_DAYS)
     return _encode({"sub": str(user_id), "exp": expire, "type": TOKEN_TYPE_REFRESH})
 
 

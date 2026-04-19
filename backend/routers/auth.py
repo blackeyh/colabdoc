@@ -63,7 +63,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         name=body.name,
         email=body.email,
         password=auth_utils.hash_password(body.password),
-        created_at=datetime.utcnow(),
+        created_at=auth_utils.utc_now(),
     )
     db.add(user)
     db.commit()

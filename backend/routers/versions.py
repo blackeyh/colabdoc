@@ -152,11 +152,11 @@ def restore_version(
         content=doc.content,
         version_number=next_version_number,
         created_by=current_user.id,
-        created_at=datetime.utcnow(),
+        created_at=auth_utils.utc_now(),
     )
     db.add(new_version)
     doc.content = version.content
-    doc.updated_at = datetime.utcnow()
+    doc.updated_at = auth_utils.utc_now()
     db.commit()
     db.refresh(doc)
     return {

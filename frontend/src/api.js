@@ -62,7 +62,7 @@ function buildHeaders(opts, token) {
   }
 }
 
-export async function apiFetch(path, opts = {}) {
+async function requestWithAuth(path, opts = {}) {
   const { signal, ...rest } = opts
   let token = getToken()
   let res = await fetch(`${API}${path}`, {
@@ -87,7 +87,30 @@ export async function apiFetch(path, opts = {}) {
     }
   }
 
+  return res
+}
+
+async function getErrorMessage(res) {
+  const data = await res.json().catch(() => null)
+  return data?.detail || `Error ${res.status}`
+}
+
+export async function apiFetch(path, opts = {}) {
+  const res = await requestWithAuth(path, opts)
+  if (!res.ok) throw new Error(await getErrorMessage(res))
+
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.detail || `Error ${res.status}`)
   return data
+}
+
+export async function apiStream(path, opts = {}) {
+  const res = await requestWithAuth(path, opts)
+  if (!res.ok) throw new Error(await getErrorMessage(res))
+  return res
+}
+
+export async function apiRaw(path, opts = {}) {
+  const res = await requestWithAuth(path, opts)
+  if (!res.ok) throw new Error(await getErrorMessage(res))
+  return res
 }

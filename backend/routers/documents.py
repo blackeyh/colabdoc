@@ -1,11 +1,12 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Literal, Optional, List
 from sqlalchemy.orm import Session
 from database import get_db
 import models
 import auth as auth_utils
+from exporters import document_to_html, document_to_plain_text, export_filename
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -116,7 +117,7 @@ def create_document(
 ):
     if not body.title:
         raise HTTPException(status_code=400, detail="Title is missing")
-    now = datetime.utcnow()
+    now = auth_utils.utc_now()
     doc = models.Document(
         title=body.title,
         content={},
@@ -159,6 +160,32 @@ def get_document(
     }
 
 
+@router.get(
+    "/{doc_id}/export",
+    summary="Export a document as HTML or plain text",
+)
+def export_document(
+    doc_id: int,
+    format: Literal["html", "txt"] = Query("html"),
+    current_user: models.User = Depends(auth_utils.get_current_user),
+    db: Session = Depends(get_db),
+):
+    doc = _get_doc_or_404(doc_id, db)
+    _require_access(doc, current_user, db, "viewer")
+
+    title = doc.title or f"Document {doc.id}"
+    if format == "txt":
+        content = document_to_plain_text(title, doc.content)
+        media_type = "text/plain; charset=utf-8"
+    else:
+        content = document_to_html(title, doc.content)
+        media_type = "text/html; charset=utf-8"
+
+    filename = export_filename(title, format, fallback=f"document-{doc.id}")
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return Response(content=content, media_type=media_type, headers=headers)
+
+
 @router.put(
     "/{doc_id}",
     response_model=DocumentUpdateResponse,
@@ -176,7 +203,7 @@ def update_document(
         doc.title = body.title
     if body.content is not None:
         doc.content = body.content
-    doc.updated_at = datetime.utcnow()
+    doc.updated_at = auth_utils.utc_now()
     db.commit()
     db.refresh(doc)
     return {"id": doc.id, "title": doc.title, "content": doc.content, "updated_at": doc.updated_at}
@@ -198,5 +225,3 @@ def delete_document(
     db.delete(doc)
     db.commit()
     return {"message": "Document deleted successfully"}
-
-

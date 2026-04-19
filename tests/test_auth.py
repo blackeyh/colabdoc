@@ -1,6 +1,6 @@
 """Auth flow: register, login, refresh, and access-vs-refresh separation."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 from jose import jwt
@@ -95,7 +95,7 @@ def test_expired_access_token_rejected(client, auth_user):
     expired = jwt.encode(
         {
             "sub": str(auth_user["id"]),
-            "exp": datetime.utcnow() - timedelta(minutes=1),
+            "exp": auth_utils.utc_now() - timedelta(minutes=1),
             "type": "access",
         },
         auth_utils.JWT_SECRET,

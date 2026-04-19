@@ -1,6 +1,6 @@
 """Pure-function tests: prompt construction and context truncation."""
 
-from ai import build_prompt, truncate_context, PROMPTS, VALID_ACTIONS
+from ai import build_prompt, truncate_context, PROMPTS, VALID_ACTIONS, NullProvider
 
 
 def test_build_prompt_includes_selected_text():
@@ -51,3 +51,14 @@ def test_truncate_context_head_when_selection_missing():
     out = truncate_context(context, "NOT-IN-DOC", limit=100)
     assert len(out) == 100
     assert out == "A" * 100
+
+
+def test_null_provider_stream_matches_complete_output():
+    provider = NullProvider("alpha beta gamma")
+    assert "".join(provider.stream_complete("ignored prompt")) == "alpha beta gamma"
+
+
+def test_null_provider_exposes_metadata():
+    provider = NullProvider("alpha beta gamma")
+    assert provider.provider_name == "null"
+    assert provider.model_name == "null-provider"

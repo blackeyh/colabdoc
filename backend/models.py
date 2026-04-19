@@ -71,6 +71,9 @@ class AIInteraction(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     selected_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     action: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    prompt_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    provider_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    model_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     suggestion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     # User decision on the suggestion: pending | accepted | rejected | edited

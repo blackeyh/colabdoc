@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { apiFetch } from '../../api'
+import { apiFetch, apiRaw } from '../../api'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import EditorBar from './EditorBar'
 import EditorTextarea from './EditorTextarea'
@@ -8,6 +8,20 @@ import { toTiptap, extractPlainText, EMPTY_TIPTAP_DOC } from '../../lib/contentC
 
 const SAVE_DEBOUNCE_MS = 600
 const TYPING_THROTTLE_MS = 2000
+
+function fallbackExportFilename(title, format) {
+  const normalized = (title || 'document')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return `${normalized || 'document'}.${format}`
+}
+
+function getFilenameFromHeaders(headers, fallback) {
+  const disposition = headers.get('content-disposition') || ''
+  const match = disposition.match(/filename="([^"]+)"/i)
+  return match?.[1] || fallback
+}
 
 export default function EditorPage({ initialDoc, currentUser, onBack, showToast }) {
   const [doc, setDoc] = useState(initialDoc)
@@ -244,6 +258,26 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
     }
   }
 
+  async function handleExport(format) {
+    try {
+      const res = await apiRaw(`/documents/${docId}/export?format=${format}`)
+      const blob = await res.blob()
+      const fallback = fallbackExportFilename(doc?.title, format)
+      const filename = getFilenameFromHeaders(res.headers, fallback)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      showToast(`Exported document as ${format.toUpperCase()}.`, 'success')
+    } catch (e) {
+      showToast(e.message, 'error')
+    }
+  }
+
   // ─── Permission actions ────────────────────────────────────────────────────
   async function handleGrantPermission(userId, permRole) {
     if (!isOwner) {
@@ -339,6 +373,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
         onBack={handleBack}
         onSaveTitle={handleSaveTitle}
         onSaveVersion={handleSaveVersion}
+        onExport={handleExport}
       />
       <div className="flex flex-1 overflow-hidden">
         <EditorTextarea

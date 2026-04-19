@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import AIPanel from './AIPanel'
 import AIHistoryPanel from './AIHistoryPanel'
 import ActiveUsers from './ActiveUsers'
@@ -13,6 +13,11 @@ export default function Sidebar({
   onRestoreVersion, onAcceptAISuggestion, showToast,
 }) {
   const canEdit = ['editor', 'owner'].includes(role)
+  const [historyVersion, setHistoryVersion] = useState(0)
+
+  function handleHistoryChange() {
+    setHistoryVersion(version => version + 1)
+  }
 
   return (
     <div className="w-64 border-l border-gray-200 bg-white overflow-y-auto flex flex-col gap-5 p-4 flex-shrink-0">
@@ -20,12 +25,13 @@ export default function Sidebar({
         docId={docId}
         selectedText={selectedText}
         context={context}
-        canEdit={canEdit}
+        canUseAI={canEdit}
         onAccept={onAcceptAISuggestion}
+        onHistoryChange={handleHistoryChange}
         showToast={showToast}
       />
       <hr className="border-gray-100" />
-      <AIHistoryPanel docId={docId} />
+      <AIHistoryPanel docId={docId} enabled={!!role} refreshKey={historyVersion} />
       <hr className="border-gray-100" />
       <ActiveUsers
         activeUsers={activeUsers}

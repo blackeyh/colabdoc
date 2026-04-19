@@ -19,8 +19,18 @@ const ROLE_BADGE = {
   viewer:    'bg-gray-100 text-gray-600',
 }
 
-export default function EditorBar({ doc, role, wsStatus, canEdit, onBack, onSaveTitle, onSaveVersion }) {
+export default function EditorBar({
+  doc,
+  role,
+  wsStatus,
+  canEdit,
+  onBack,
+  onSaveTitle,
+  onSaveVersion,
+  onExport,
+}) {
   const [title, setTitle] = useState(doc?.title || '')
+  const [exportFormat, setExportFormat] = useState('html')
 
   useEffect(() => {
     if (doc?.title) setTitle(doc.title)
@@ -59,6 +69,26 @@ export default function EditorBar({ doc, role, wsStatus, canEdit, onBack, onSave
           Save Version
         </button>
       )}
+
+      <label className="sr-only" htmlFor="export-format">
+        Export format
+      </label>
+      <select
+        id="export-format"
+        value={exportFormat}
+        onChange={e => setExportFormat(e.target.value)}
+        className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"
+      >
+        <option value="html">HTML</option>
+        <option value="txt">Text</option>
+      </select>
+
+      <button
+        onClick={() => onExport(exportFormat)}
+        className="text-sm px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 transition whitespace-nowrap"
+      >
+        Export
+      </button>
     </div>
   )
 }

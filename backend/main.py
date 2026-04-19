@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -33,6 +32,9 @@ def _ensure_ai_interaction_columns():
     statements = [
         "ALTER TABLE ai_interactions ADD COLUMN IF NOT EXISTS user_action VARCHAR",
         "ALTER TABLE ai_interactions ADD COLUMN IF NOT EXISTS final_text TEXT",
+        "ALTER TABLE ai_interactions ADD COLUMN IF NOT EXISTS prompt_text TEXT",
+        "ALTER TABLE ai_interactions ADD COLUMN IF NOT EXISTS provider_name VARCHAR",
+        "ALTER TABLE ai_interactions ADD COLUMN IF NOT EXISTS model_name VARCHAR",
     ]
     try:
         with engine.begin() as conn:
@@ -111,7 +113,7 @@ async def document_ws(
                     # Persist to DB
                     new_content = msg.get("content", doc.content)
                     doc.content = new_content
-                    doc.updated_at = datetime.utcnow()
+                    doc.updated_at = auth_utils.utc_now()
 
                     # Auto-save a version every 10 updates (tracked by version count)
                     version_count = (
@@ -127,7 +129,7 @@ async def document_ws(
                             content=new_content,
                             version_number=next_num,
                             created_by=user.id,
-                            created_at=datetime.utcnow(),
+                            created_at=auth_utils.utc_now(),
                         )
                         db.add(v)
 

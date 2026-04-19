@@ -4,6 +4,22 @@ This document captures places where the ColabDoc implementation intentionally
 diverges from the most obvious reading of the Assignment 2 brief, and the
 reasoning behind each choice.
 
+## Authentication provider — local JWT auth instead of an external IdP
+
+**What:** The PoC uses app-managed registration/login plus JWT access/refresh
+tokens. It does not depend on a hosted authentication provider such as Auth0.
+
+**Why:** For the assignment deliverable, a self-contained auth flow is easier
+to run, demo, and test locally. It removes external dashboard/configuration
+steps for reviewers while still covering protected routes, session refresh, and
+role-based authorization.
+
+**How applied:** Users are stored in the application database, passwords are
+hashed locally, and the FastAPI backend issues JWTs directly. The current
+system-context/runtime architecture should therefore be read as "ColabDoc
+backend performs authentication" rather than "external IdP performs
+authentication."
+
 ## Authentication — access + refresh split
 
 **What:** `/auth/login` returns both an access token (short-lived, 20 min by
@@ -38,7 +54,8 @@ least three" requirement.
 **How applied:** The ACL comparator in `routers/documents.py` and
 `routers/versions.py` uses a numeric order
 (`viewer < commenter < editor < owner`) so `commenter` sits between viewer
-and editor — it can read, but cannot save edits or restore versions.
+and editor — it can read, but cannot save edits, restore versions, or invoke
+AI actions.
 
 ## Rich-text editor — Tiptap with a compat shim
 
@@ -55,6 +72,50 @@ shapes on load. Legacy docs render as a single paragraph; the first edit
 overwrites the stored content with a Tiptap doc. No migration is run on the
 existing `documents.content` column.
 
+## Repository structure — simplified single repo layout
+
+**What:** The deliverable is a single repository with `backend/` and
+`frontend/` directories rather than multiple independently deployed services or
+packages.
+
+**Why:** The assignment submission is easier to clone, review, and demo when
+the full stack lives in one place. The structure still keeps a clear separation
+between frontend and backend responsibilities without requiring a more complex
+workspace or package-manager setup.
+
+**How applied:** `start.sh` bootstraps both halves of the stack from the repo
+root, and the README documents the actual folder layout shipped in the PoC.
+
+## Export — HTML and TXT rather than binary office formats
+
+**What:** Documents can be exported through
+`GET /documents/{id}/export?format=html|txt`. The editor bar exposes that as
+an `Export` control with `HTML` and `Text` options.
+
+**Why:** Assignment 1 requires "at least one common portable format" that keeps
+the current saved content readable. HTML and TXT satisfy that requirement while
+remaining deterministic in tests, lightweight to generate on the backend, and
+easy for graders to inspect without extra dependencies.
+
+**How applied:** The backend renders Tiptap JSON into either a styled standalone
+HTML document or a plain-text version with readable paragraphs and list
+numbering. Export is allowed for any role with read access because it operates
+on the persisted server copy of the document.
+
+## Setup/runtime defaults — local SQLite and self-bootstrapping startup
+
+**What:** `.env.example` now ships with a runnable local SQLite configuration,
+and `start.sh` creates the virtual environment, installs backend/frontend
+dependencies, and copies `.env.example` to `.env` when no env file exists.
+
+**Why:** Assignment 2 explicitly asks for a reviewer-friendly run script. The
+previous setup assumed a pre-existing venv, backend packages, and a manually
+edited Postgres URL, which was a real friction point during testing.
+
+**How applied:** The default reviewer path is now "clone -> `./start.sh` ->
+open the app". Postgres remains supported by swapping `DATABASE_URL`, but the
+example config is intentionally zero-dependency for local review.
+
 ## AI — provider abstraction and a null provider
 
 **What:** `backend/ai/` exposes an `LLMProvider` ABC with two concrete
@@ -69,29 +130,48 @@ running model, and decouples code review from model availability.
 **How applied:** Prompts live in `backend/ai/prompts.py` as a dict keyed by
 action; adding a new action is one dict entry. `truncate_context` keeps a
 4000-character window centered on the selected text so long documents don't
-blow the context budget.
+blow the context budget. The provider interface now supports both full
+completion (`complete`) and streamed generation (`stream_complete`), and the
+frontend consumes the stream over `text/event-stream`.
 
-## AI interactions — `user_action` and `final_text`
+## AI interactions — document-level audit trail
 
-**What:** The `ai_interactions` table gained two columns: `user_action`
-(`pending | accepted | rejected | edited`) and `final_text`.
+**What:** The `ai_interactions` table stores the selected text, generated
+prompt, provider name, model name, response text, provider status, user
+decision, and final applied text.
 
-**Why:** The brief asks for a history of AI use with user decisions. Storing
-the original AI output in `suggestion` and the user's final text in
-`final_text` preserves both sides of the diff so the history panel can show
-exactly what changed.
+**Why:** The brief asks for a history of AI use that includes input, prompt,
+model, response, and accept/reject status. A thin per-user activity feed was
+not enough; the final implementation needs to function as a document-level
+audit trail.
 
 **How applied:** The new `POST /documents/{id}/ai/interactions/{iid}/resolve`
 endpoint is called by the frontend whenever the user accepts, edits, or
-rejects a suggestion. On Postgres, a startup `ALTER TABLE IF NOT EXISTS`
-migration in `main.py` adds the columns to existing deployments; on SQLite
-(used in tests) the columns are created by `Base.metadata.create_all`.
+rejects a suggestion. `GET /documents/{id}/ai/history` now returns the history
+for the whole document, not just the current user. On Postgres, a startup
+`ALTER TABLE IF NOT EXISTS` migration in `main.py` adds the extra metadata
+columns to existing deployments; on SQLite (used in tests) the columns are
+created by `Base.metadata.create_all`.
 
-## Collab — typing indicator and last-write-wins offline queue
+## Realtime stack — in-process WebSocket manager instead of a separate realtime service
+
+**What:** Collaboration runs through FastAPI plus an in-process WebSocket
+manager. It does not use a separate realtime service, Redis fan-out, or Yjs.
+
+**Why:** This keeps the deployment/demo story lightweight while still covering
+the core assignment requirements: authenticated WebSocket collaboration,
+presence, typing, remote cursor display, and persisted shared edits.
+
+**How applied:** The backend keeps active users in memory for the current
+process and broadcasts document events directly from the FastAPI app.
+
+## Collab — typing indicator, in-editor cursor presence, and last-write-wins offline queue
 
 **What:** The WebSocket protocol gained a `typing` message in both
-directions. While the client is disconnected, it keeps a single-slot
-last-write-wins buffer of the latest Tiptap JSON and flushes it on reconnect.
+directions. Remote collaborator cursor ranges are rendered inside the Tiptap
+editor with ProseMirror decorations, and while the client is disconnected it
+keeps a single-slot last-write-wins buffer of the latest Tiptap JSON and
+flushes it on reconnect.
 
 **Why:** The brief asks for presence/typing and for resilience against
 transient disconnects. A full CRDT would handle concurrent offline edits
@@ -100,7 +180,9 @@ correctly, but is out of scope for this batch.
 **How applied:** `frontend/src/hooks/useWebSocket.js` exposes an `onReconnect`
 callback; `EditorPage.jsx` uses it to pull the canonical document via
 `apiFetch('/documents/{id}')` before flushing the offline queue, so the last
-server state wins when there is a conflict.
+server state wins when there is a conflict. `EditorTextarea.jsx` registers a
+ProseMirror plugin that turns incoming remote selection positions into colored
+carets and inline highlights.
 
 ## Testing — SQLite with a JSONB→JSON shim
 
@@ -122,16 +204,12 @@ schema per test. Fixtures (`client`, `auth_user`, `user_factory`,
 
 These were explicitly deferred and are not in the current change set:
 
-- **Streaming AI responses.** The provider abstraction leaves room for it,
-  but the router returns the full completion in a single response. SSE or
-  WebSocket chunking is a follow-up.
 - **End-to-end validation against a real LLM.** `OpenAIProvider` is
   implemented but not exercised in CI; manual verification against LM Studio
   is the current story.
 - **CRDT/Yjs conflict resolution.** The offline queue is last-write-wins.
-- **Remote cursor offsets on the Tiptap document.** Cursor broadcasts still
-  carry the legacy textarea offset; mapping to ProseMirror positions is a
-  follow-up.
 - **Server-side refresh-token revocation list.** Logout is stateless; a
   compromised refresh token is valid until it expires.
-- **Swapping the DB away from Neon.** Out of scope.
+- **Multi-instance realtime fan-out.** The in-memory WebSocket manager is
+  sufficient for the assignment demo, but horizontal scaling would require a
+  shared backplane such as Redis or a dedicated collaboration service.

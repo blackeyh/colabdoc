@@ -5,21 +5,35 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('../src/api', () => ({
   apiFetch: vi.fn(),
+  apiStream: vi.fn(),
 }))
 
 import AIPanel from '../src/components/editor/sidebar/AIPanel'
-import { apiFetch } from '../src/api'
+import { apiFetch, apiStream } from '../src/api'
+
+function streamResponse(events) {
+  const encoder = new TextEncoder()
+  return new Response(new ReadableStream({
+    start(controller) {
+      for (const event of events) {
+        controller.enqueue(encoder.encode(event))
+      }
+      controller.close()
+    },
+  }))
+}
 
 const baseProps = {
   docId: 42,
   context: 'the whole document',
-  canEdit: true,
+  canUseAI: true,
   showToast: vi.fn(),
 }
 
 describe('AIPanel', () => {
   beforeEach(() => {
     apiFetch.mockReset()
+    apiStream.mockReset()
     baseProps.showToast.mockReset?.()
   })
 
@@ -29,15 +43,20 @@ describe('AIPanel', () => {
   })
 
   it('fetches a suggestion and renders the compare view', async () => {
-    apiFetch.mockResolvedValueOnce({ id: 7, suggestion: 'improved text' })
+    apiStream.mockResolvedValueOnce(streamResponse([
+      'event: meta\ndata: {"id":7,"action":"rewrite","status":"pending"}\n\n',
+      'event: delta\ndata: {"chunk":"improved "}\n\n',
+      'event: delta\ndata: {"chunk":"text"}\n\n',
+      'event: done\ndata: {"id":7,"action":"rewrite","status":"completed","suggestion":"improved text"}\n\n',
+    ]))
     const onAccept = vi.fn()
 
     render(<AIPanel {...baseProps} selectedText="hello there" onAccept={onAccept} />)
 
     await userEvent.click(screen.getByRole('button', { name: /Rewrite/i }))
 
-    expect(apiFetch).toHaveBeenCalledWith(
-      '/documents/42/ai/assist',
+    expect(apiStream).toHaveBeenCalledWith(
+      '/documents/42/ai/assist/stream',
       expect.objectContaining({ method: 'POST' }),
     )
     // Compare view renders the editable suggestion
@@ -46,9 +65,11 @@ describe('AIPanel', () => {
   })
 
   it('accepting an unedited suggestion logs user_action=accepted', async () => {
-    apiFetch
-      .mockResolvedValueOnce({ id: 7, suggestion: 'improved text' })
-      .mockResolvedValueOnce({}) // resolve
+    apiStream.mockResolvedValueOnce(streamResponse([
+      'event: meta\ndata: {"id":7,"action":"rewrite","status":"pending"}\n\n',
+      'event: done\ndata: {"id":7,"action":"rewrite","status":"completed","suggestion":"improved text"}\n\n',
+    ]))
+    apiFetch.mockResolvedValueOnce({})
     const onAccept = vi.fn()
 
     render(<AIPanel {...baseProps} selectedText="hello there" onAccept={onAccept} />)
@@ -66,9 +87,11 @@ describe('AIPanel', () => {
   })
 
   it('editing then accepting logs user_action=edited with edited_text', async () => {
-    apiFetch
-      .mockResolvedValueOnce({ id: 9, suggestion: 'seed text' })
-      .mockResolvedValueOnce({}) // resolve
+    apiStream.mockResolvedValueOnce(streamResponse([
+      'event: meta\ndata: {"id":9,"action":"summarize","status":"pending"}\n\n',
+      'event: done\ndata: {"id":9,"action":"summarize","status":"completed","suggestion":"seed text"}\n\n',
+    ]))
+    apiFetch.mockResolvedValueOnce({})
     const onAccept = vi.fn()
 
     render(<AIPanel {...baseProps} selectedText="x y z" onAccept={onAccept} />)
@@ -86,9 +109,11 @@ describe('AIPanel', () => {
   })
 
   it('rejecting logs user_action=rejected', async () => {
-    apiFetch
-      .mockResolvedValueOnce({ id: 3, suggestion: 'never used' })
-      .mockResolvedValueOnce({}) // resolve
+    apiStream.mockResolvedValueOnce(streamResponse([
+      'event: meta\ndata: {"id":3,"action":"rewrite","status":"pending"}\n\n',
+      'event: done\ndata: {"id":3,"action":"rewrite","status":"completed","suggestion":"never used"}\n\n',
+    ]))
+    apiFetch.mockResolvedValueOnce({})
 
     render(<AIPanel {...baseProps} selectedText="hi" onAccept={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /Rewrite/i }))
@@ -97,5 +122,20 @@ describe('AIPanel', () => {
     const lastCall = apiFetch.mock.calls.at(-1)
     expect(lastCall[0]).toBe('/documents/42/ai/interactions/3/resolve')
     expect(lastCall[1].body).toContain('"user_action":"rejected"')
+  })
+
+  it('disables AI actions when the role cannot use AI', async () => {
+    render(
+      <AIPanel
+        {...baseProps}
+        canUseAI={false}
+        selectedText="hello there"
+        onAccept={vi.fn()}
+      />,
+    )
+
+    const rewrite = screen.getByRole('button', { name: /Rewrite/i })
+    expect(rewrite).toBeDisabled()
+    expect(screen.getByText(/Only editors and owners can use AI suggestions/i)).toBeInTheDocument()
   })
 })

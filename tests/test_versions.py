@@ -1,9 +1,8 @@
 """Version history: list, fetch, and restore."""
 
-from datetime import datetime
-
 import pytest
 
+import auth as auth_utils
 import models
 
 
@@ -15,7 +14,7 @@ def seed_version(db_session):
             content=content,
             version_number=version_number,
             created_by=user_id,
-            created_at=datetime.utcnow(),
+            created_at=auth_utils.utc_now(),
         )
         db_session.add(v)
         db_session.commit()

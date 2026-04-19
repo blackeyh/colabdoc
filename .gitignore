@@ -8,6 +8,7 @@ wheels/
 backend/__pycache__/
 
 # Virtual environments
+.venv/
 .venva
 
 # Secrets
@@ -22,3 +23,5 @@ pyproject.toml
 frontend/node_modules/
 frontend/dist/
 
+# Local SQLite databases
+*.db

@@ -1,6 +1,7 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { describe, it, expect, vi } from 'vitest'
 import EditorBar from '../src/components/editor/EditorBar'
 
 const baseProps = {
@@ -10,6 +11,7 @@ const baseProps = {
   onBack: () => {},
   onSaveTitle: () => {},
   onSaveVersion: () => {},
+  onExport: () => {},
 }
 
 describe('EditorBar status labels', () => {
@@ -42,5 +44,22 @@ describe('EditorBar status labels', () => {
   it('renders the role badge', () => {
     render(<EditorBar {...baseProps} wsStatus="connected" role="commenter" />)
     expect(screen.getByText('commenter')).toBeInTheDocument()
+  })
+
+  it('renders export controls for accessible documents', () => {
+    render(<EditorBar {...baseProps} wsStatus="connected" canEdit={false} role="viewer" />)
+    expect(screen.getByLabelText(/Export format/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Export/i })).toBeInTheDocument()
+  })
+
+  it('calls onExport with the selected format', async () => {
+    const onExport = vi.fn()
+    const user = userEvent.setup()
+    render(<EditorBar {...baseProps} wsStatus="connected" onExport={onExport} />)
+
+    await user.selectOptions(screen.getByLabelText(/Export format/i), 'txt')
+    await user.click(screen.getByRole('button', { name: /Export/i }))
+
+    expect(onExport).toHaveBeenCalledWith('txt')
   })
 })
