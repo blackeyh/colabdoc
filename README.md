@@ -104,6 +104,9 @@ For the recommended live grading/demo flow, see
 For a single consolidated submission document, see
 [ASSIGNMENT2_REPORT.md](ASSIGNMENT2_REPORT.md).
 
+For a styled PDF submission version, see
+[ASSIGNMENT2_REPORT.pdf](ASSIGNMENT2_REPORT.pdf).
+
 ## Features
 
 - Sign up / log in
