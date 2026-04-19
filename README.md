@@ -98,20 +98,11 @@ For the final submission architecture diagrams and the explicit mapping from the
 Assignment 1 report to the delivered Assignment 2 system, see
 [ARCHITECTURE_ADDENDUM.md](ARCHITECTURE_ADDENDUM.md).
 
-For the recommended live grading/demo flow, see
-[DEMO_CHECKLIST.md](DEMO_CHECKLIST.md).
-
 For a single consolidated submission document, see
 [ASSIGNMENT2_REPORT.md](ASSIGNMENT2_REPORT.md).
 
 For a styled PDF submission version, see
 [ASSIGNMENT2_REPORT.pdf](ASSIGNMENT2_REPORT.pdf).
-
-For the final submission/demo handoff checklist and Q&A prep, see
-[FINAL_SUBMISSION_GUIDE.md](FINAL_SUBMISSION_GUIDE.md).
-
-For a short live-presentation script and rehearsal notes, see
-[DEMO_TALK_TRACK.md](DEMO_TALK_TRACK.md).
 
 ## Features
 

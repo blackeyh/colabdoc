@@ -24,7 +24,6 @@ Related project documentation:
 - [README.md](README.md)
 - [DEVIATIONS.md](DEVIATIONS.md)
 - [ARCHITECTURE_ADDENDUM.md](ARCHITECTURE_ADDENDUM.md)
-- [DEMO_CHECKLIST.md](DEMO_CHECKLIST.md)
 
 ## 2. Project Summary
 
@@ -1023,7 +1022,7 @@ Suggested order:
 11. save a version and restore it
 12. export as HTML and TXT
 
-This flow is captured in [DEMO_CHECKLIST.md](DEMO_CHECKLIST.md).
+The recommended live demo order is listed above for presentation prep.
 
 ## 17. Remaining Trade-Offs and Known Limits
 
