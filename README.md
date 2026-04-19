@@ -101,6 +101,9 @@ Assignment 1 report to the delivered Assignment 2 system, see
 For the recommended live grading/demo flow, see
 [DEMO_CHECKLIST.md](DEMO_CHECKLIST.md).
 
+For a single consolidated submission document, see
+[ASSIGNMENT2_REPORT.md](ASSIGNMENT2_REPORT.md).
+
 ## Features
 
 - Sign up / log in
