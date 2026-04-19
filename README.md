@@ -107,6 +107,9 @@ For a single consolidated submission document, see
 For a styled PDF submission version, see
 [ASSIGNMENT2_REPORT.pdf](ASSIGNMENT2_REPORT.pdf).
 
+For the final submission/demo handoff checklist and Q&A prep, see
+[FINAL_SUBMISSION_GUIDE.md](FINAL_SUBMISSION_GUIDE.md).
+
 ## Features
 
 - Sign up / log in
