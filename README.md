@@ -94,6 +94,10 @@ cd backend
 - SQLAlchemy stores documents, permissions, versions, and AI interaction history.
 - AI providers sit behind one backend interface, so switching between `null`, Ollama/LM Studio, or OpenAI-compatible hosted APIs is a config change rather than a route rewrite.
 
+For the final submission architecture diagrams and the explicit mapping from the
+Assignment 1 report to the delivered Assignment 2 system, see
+[ARCHITECTURE_ADDENDUM.md](ARCHITECTURE_ADDENDUM.md).
+
 ## Features
 
 - Sign up / log in
