@@ -110,6 +110,9 @@ For a styled PDF submission version, see
 For the final submission/demo handoff checklist and Q&A prep, see
 [FINAL_SUBMISSION_GUIDE.md](FINAL_SUBMISSION_GUIDE.md).
 
+For a short live-presentation script and rehearsal notes, see
+[DEMO_TALK_TRACK.md](DEMO_TALK_TRACK.md).
+
 ## Features
 
 - Sign up / log in
