@@ -9,6 +9,7 @@ import { createSnapshotFromContent } from '../../lib/collaboration'
 
 const SAVE_DEBOUNCE_MS = 600
 const TYPING_THROTTLE_MS = 2000
+const LIVE_WS_STATES = new Set(['connected', 'saving', 'saved'])
 
 function fallbackExportFilename(title, format) {
   const normalized = (title || 'document')
@@ -53,6 +54,10 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
   const docId = doc?.id
   const canEdit = ['editor', 'owner'].includes(role)
   const isOwner = role === 'owner'
+
+  function hasLiveSocket(status) {
+    return LIVE_WS_STATES.has(status)
+  }
 
   // ─── WebSocket message handler ────────────────────────────────────────────
   const handleWsMessage = useCallback((msg) => {
@@ -269,7 +274,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
   }
 
   function persistDocument(json, saveVersion = false) {
-    if (wsStatusRef.current === 'connected') {
+    if (hasLiveSocket(wsStatusRef.current)) {
       try {
         sendRef.current?.({
           type: 'persist',
@@ -288,7 +293,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
 
   function handleCollabUpdate(payload) {
     if (!payload?.snapshot || !payload?.update) return
-    if (wsStatusRef.current === 'connected') {
+    if (hasLiveSocket(wsStatusRef.current)) {
       sendRef.current?.({
         type: 'crdt_update',
         update: payload.update,
@@ -303,7 +308,7 @@ export default function EditorPage({ initialDoc, currentUser, onBack, showToast 
   function handleInitialSnapshot(snapshot) {
     if (!snapshot || collabSessionRef.current?.syncPending) return
     offlineSnapshotRef.current = snapshot
-    if (wsStatusRef.current === 'connected') {
+    if (hasLiveSocket(wsStatusRef.current)) {
       sendRef.current?.({ type: 'crdt_snapshot', snapshot })
       offlineSnapshotRef.current = null
     }
